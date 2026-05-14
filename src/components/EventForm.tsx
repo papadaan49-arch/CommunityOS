@@ -90,14 +90,14 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
     });
   };
 
-  const inputClass = (field: string) => `w-full p-3 bg-slate-50 border ${
+  const inputClass = (field: string) => `w-full p-4 bg-slate-50 border ${
     touched[field] && !validation[field as keyof typeof validation] 
       ? 'border-amber-400 focus:ring-amber-500/10 focus:border-amber-500' 
-      : 'border-slate-200 focus:ring-teal-500/10 focus:border-teal-500'
-  } rounded-xl focus:bg-white outline-none transition-all placeholder:text-slate-400 text-slate-800 font-medium`;
+      : 'border-slate-100 focus:ring-teal-500/10 focus:border-teal-500'
+  } rounded-2xl focus:bg-white outline-none transition-all placeholder:text-slate-300 text-slate-800 text-sm md:text-base`;
   
-  const labelClass = "block text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] mb-1.5 ml-1";
-  const errorClass = "text-[9px] font-bold text-amber-600 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1 px-1";
+  const labelClass = "block text-[11px] font-semibold text-slate-500 uppercase tracking-[0.2em] mb-2 ml-1";
+  const errorClass = "text-[10px] font-medium text-amber-600 mt-2 ml-1 animate-in fade-in slide-in-from-top-1 px-1 leading-relaxed";
 
   const handleBlur = (field: string) => {
     setTouched(prev => ({ ...prev, [field]: true }));
@@ -106,16 +106,16 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
   return (
     <form 
       onSubmit={handleSubmit} 
-      className="bg-white p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6 md:space-y-8 relative overflow-hidden"
+      className="bg-white p-8 md:p-14 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 space-y-10 md:space-y-12 relative overflow-hidden"
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-50" />
       
-      <div className="relative border-b border-slate-100 pb-6">
-        <h2 className="text-xl md:text-2xl font-display font-extrabold text-slate-800 mb-1 md:mb-2">Konfigurasi Acara</h2>
+      <div className="relative border-b border-slate-100 pb-8">
+        <h2 className="text-xl md:text-2xl font-display font-bold text-slate-800 mb-2 md:mb-3">Konfigurasi Acara</h2>
         <p className="text-xs md:text-sm text-slate-500 mb-4 italic leading-relaxed">"Lengkapi detail untuk hasil yang lebih akurat dan personal."</p>
       </div>
       
-      <div className="space-y-4 md:space-y-6 relative">
+      <div className="space-y-8 md:space-y-10 relative">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
             <label className={labelClass}>Nama Kegiatan</label>
@@ -271,7 +271,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
           className="w-full relative group disabled:cursor-not-allowed"
         >
           <div className="absolute -inset-1 bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
-          <div className="relative bg-slate-900 group-hover:bg-slate-800 text-white font-display font-bold py-3.5 md:py-4 rounded-2xl transition-all disabled:opacity-75 flex flex-col items-center justify-center gap-0.5 text-sm md:text-base">
+          <div className="relative bg-slate-900 group-hover:bg-slate-800 text-white font-display font-semibold py-3.5 md:py-4 rounded-2xl transition-all disabled:opacity-75 flex flex-col items-center justify-center gap-0.5 text-sm md:text-base">
             {loading ? (
               'Menganalisis...'
             ) : cooldown > 0 ? (
@@ -282,7 +282,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
           </div>
         </button>
         {cooldown > 0 && !loading && (
-          <p className="text-center text-[10px] font-bold text-slate-400 mt-3 animate-pulse">
+          <p className="text-center text-[10px] font-semibold text-slate-400 mt-3 animate-pulse">
             Community<span className="text-teal-600">OS</span> sedang menjaga stabilitas sistem ✨
           </p>
         )}

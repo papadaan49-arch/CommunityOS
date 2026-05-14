@@ -47,20 +47,20 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
         'from-emerald-100 to-emerald-50'
       }`}
     >
-      <div className={`p-6 md:p-8 rounded-[calc(1.5rem+4px)] h-full ${theme.bg} border ${theme.border}`}>
-        <div className="flex items-center justify-between mb-6 md:mb-8">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white overflow-hidden flex items-center justify-center shadow-lg shadow-black/5`}>
+      <div className={`p-10 md:p-14 rounded-[calc(3rem-2px)] h-full ${theme.bg} border ${theme.border}`}>
+        <div className="flex items-center justify-between mb-12 md:mb-16">
+          <div className="flex items-center gap-6">
+            <div className={`w-16 h-16 md:w-24 md:h-24 rounded-[1.75rem] bg-white overflow-hidden flex items-center justify-center shadow-xl shadow-black/5`}>
               <img 
                 src="/icon-512.png" 
                 alt="CommunityOS Logo" 
                 className="w-full h-full object-cover" 
               />
             </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-display font-extrabold text-slate-800 tracking-tight">Wellbeing Guard</h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`text-[9px] md:text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full ${theme.badge}`}>
+            <div className="space-y-1">
+              <h2 className="text-2xl md:text-3xl font-display font-bold text-slate-800">Wellbeing Guard</h2>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] md:text-xs uppercase tracking-[0.2em] font-semibold px-3 py-1 rounded-full ${theme.badge}`}>
                   Level Risiko: {guard.risk_level}
                 </span>
               </div>
@@ -68,33 +68,33 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
           </div>
         </div>
 
-        <div className="relative mb-6 md:mb-8">
-          <div className="absolute -left-5 md:-left-6 top-0 bottom-0 w-0.5 md:w-1 bg-gradient-to-b from-transparent via-slate-200 to-transparent opacity-50" />
-          <p className="text-slate-600 text-sm md:text-lg leading-relaxed font-medium italic">
+        <div className="relative mb-12 md:mb-16 pl-4 md:pl-0">
+          <div className="absolute -left-4 md:-left-10 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-slate-200/50 to-transparent opacity-50" />
+          <p className="text-slate-600 text-lg md:text-2xl leading-[1.8] font-medium italic">
             "{guard.burnout_analysis}"
           </p>
         </div>
 
-        <div className="space-y-3 md:space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="h-px flex-1 bg-slate-200" />
-            <h3 className="text-[9px] md:text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Rekomendasi Sehat</h3>
-            <div className="h-px flex-1 bg-slate-200" />
+        <div className="space-y-6 md:space-y-8">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200/50" />
+            <h3 className="text-[10px] md:text-xs font-semibold text-slate-400 uppercase tracking-[0.3em]">Rekomendasi Sehat</h3>
+            <div className="h-px flex-1 bg-slate-200/50" />
           </div>
           
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
             {guard.action_items.map((item, index) => (
               <motion.div 
                 key={index}
                 initial={{ x: -10, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-3 bg-white/70 backdrop-blur-sm p-3 rounded-xl border border-white/50 shadow-sm hover:shadow-md transition-all group"
+                className="flex items-center gap-5 bg-white/90 backdrop-blur-sm p-5 rounded-[1.75rem] border border-white/50 shadow-sm hover:shadow-md transition-all group"
               >
-                <div className={`p-1 rounded-lg ${theme.bg} group-hover:scale-110 transition-transform flex-shrink-0`}>
-                  <Heart className={`w-3.5 h-3.5 ${theme.icon}`} />
+                <div className={`p-2 rounded-xl ${theme.bg} group-hover:scale-110 transition-transform flex-shrink-0`}>
+                  <Heart className={`w-5 h-5 ${theme.icon}`} />
                 </div>
-                <span className="text-xs font-bold text-slate-700 leading-tight">{item}</span>
+                <span className="text-[15px] font-semibold text-slate-800 leading-[1.4]">{item}</span>
               </motion.div>
             ))}
           </div>
@@ -105,11 +105,11 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="mt-6 flex items-start gap-3 p-4 bg-white/40 rounded-2xl border border-dashed border-slate-300"
+            className="mt-10 flex items-start gap-4 p-5 bg-white/50 rounded-[2rem] border border-dashed border-slate-200 shadow-inner"
           >
-            <AlertCircle className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-slate-500 font-medium leading-relaxed italic">
-              "Ingat, tujuan kita berdampak, bukan jadi sempurna. Jaga kesehatan tim di atas segalanya."
+            <AlertCircle className="w-6 h-6 text-slate-300 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-slate-500 font-medium leading-relaxed italic">
+              "Ingat, tujuan kita adalah menciptakan dampak yang berkelanjutan. Jaga kesehatan tim di atas segalanya."
             </p>
           </motion.div>
         )}

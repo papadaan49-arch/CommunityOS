@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "BlueprintMetadata": {
+      "title": "Blueprint Operational Metadata",
+      "description": "Structured operational metadata from CommunityOS blueprints",
+      "type": "object",
+      "properties": {
+        "event_name": { "type": "string" },
+        "organization": { "type": "string" },
+        "city": { "type": "string" },
+        "event_type": { "type": "string" },
+        "participants": { "type": "number" },
+        "committee_count": { "type": "number" },
+        "budget": { "type": "number" },
+        "blueprint_scale": { "type": "string" },
+        "burnout_risk": { "type": "number" },
+        "operational_complexity": { "type": "number" },
+        "coordination_intensity": { "type": "number" },
+        "wellbeing_risk_level": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": [
+        "event_name",
+        "organization",
+        "city",
+        "event_type",
+        "participants",
+        "committee_count",
+        "budget",
+        "blueprint_scale",
+        "burnout_risk",
+        "operational_complexity",
+        "coordination_intensity",
+        "wellbeing_risk_level",
+        "timestamp"
+      ]
+    }
+  },
+  "firestore": {
+    "/blueprints/{blueprintId}": {
+      "schema": "BlueprintMetadata",
+      "description": "Publicly generated blueprint metadata for operational insights"
+    }
+  }
+}

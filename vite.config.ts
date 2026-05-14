@@ -10,30 +10,6 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      VitePWA({
-        registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
-        manifest: {
-          name: 'CommunityOS',
-          short_name: 'CommunityOS',
-          description: 'AI Operating System for Communities in Indonesia',
-          theme_color: '#0d9488', // teal-600
-          background_color: '#ffffff',
-          display: 'standalone',
-          icons: [
-            {
-              src: 'icon-512.png',
-              sizes: '512x512',
-              type: 'image/png'
-            },
-            {
-              src: 'icon-512.png',
-              sizes: '192x192',
-              type: 'image/png'
-            }
-          ]
-        }
-      })
     ],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

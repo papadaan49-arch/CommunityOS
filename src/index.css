@@ -12,7 +12,43 @@
 }
 
 @layer base {
-  h1, h2, h3 {
-    @apply font-display tracking-tight;
+  html {
+    @apply text-[15px] md:text-[16px];
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display text-slate-900;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+  }
+  
+  p, span, li {
+    @apply leading-[1.7] text-slate-600;
+  }
+  
+  h1 { @apply text-4xl md:text-6xl font-bold; }
+  h2 { @apply text-2xl md:text-3xl font-semibold; }
+  h3 { @apply text-xl md:text-2xl font-semibold; }
+}
+
+@layer utilities {
+  .ios-spacing {
+    @apply space-y-16 md:space-y-24;
+  }
+  
+  .content-padding {
+    @apply px-8 md:px-10;
+  }
+  
+  .pdf-export {
+    background-color: white !important;
+    padding: 40px !important;
+  }
+  
+  .pdf-export section,
+  .pdf-export > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 3rem !important;
   }
 }

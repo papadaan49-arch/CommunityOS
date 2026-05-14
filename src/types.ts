@@ -10,6 +10,22 @@ export interface EventData {
   previous_context?: string;
 }
 
+export interface OperationalMetadata {
+  event_name: string;
+  organization: string;
+  city: string;
+  event_type: string;
+  participants: number;
+  committee_count: number;
+  budget: number;
+  blueprint_scale: string;
+  burnout_risk: number;
+  operational_complexity: number;
+  coordination_intensity: number;
+  wellbeing_risk_level: string;
+  timestamp: number;
+}
+
 export interface Blueprint {
   event_meta: {
     title: string;

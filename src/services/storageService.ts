@@ -5,6 +5,7 @@ const MAX_HISTORY = 10;
 
 export interface HistoryItem {
   id: string;
+  cloudId?: string | null;
   title: string;
   city: string;
   scale: string;
@@ -13,13 +14,14 @@ export interface HistoryItem {
   originalData?: any; // To store original EventData for revision
 }
 
-export const saveBlueprintToHistory = (blueprint: Blueprint, originalData?: any) => {
+export const saveBlueprintToHistory = (blueprint: Blueprint, originalData?: any, cloudId?: string | null) => {
   try {
     const historyJson = localStorage.getItem(STORAGE_KEY);
     let history: HistoryItem[] = historyJson ? JSON.parse(historyJson) : [];
 
     const newItem: HistoryItem = {
       id: crypto.randomUUID(),
+      cloudId,
       title: blueprint.event_meta.title,
       city: blueprint.event_meta.location,
       scale: blueprint.event_meta.scale_classification,
@@ -48,4 +50,9 @@ export const getHistory = (): HistoryItem[] => {
 
 export const clearHistory = () => {
   localStorage.removeItem(STORAGE_KEY);
+};
+
+export const clearSessionCache = () => {
+  // Clear any temporary session state if needed in the future
+  sessionStorage.clear();
 };

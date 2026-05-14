@@ -1,21 +1,31 @@
 import React from 'react';
-import { Calendar, CreditCard, MapPin, Share2, Copy, Check, Zap, Gauge, AlertTriangle, UserMinus, ClipboardList, Handshake, FileDown, Loader2, Settings2, RefreshCcw, ArrowLeft } from 'lucide-react';
+import { Calendar, CreditCard, MapPin, Share2, Copy, Check, Zap, Gauge, AlertTriangle, UserMinus, ClipboardList, Handshake, FileDown, Loader2, Settings2, RefreshCcw, ArrowLeft, HelpCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import html2pdf from 'html2pdf.js';
 import { toast } from 'sonner';
 import { Blueprint } from '../types';
+import { BrandLogo } from './BrandLogo';
 import { WellbeingGuard } from './WellbeingGuard';
 import { FeedbackSection } from './FeedbackSection';
+import { CollaboratorsManager } from './CollaboratorsManager';
+import { LoadingOverlay } from './LoadingOverlay';
+import { HelpTooltip } from './HelpTooltip';
+import { GUIDANCE_DATA } from '../constants/guidance';
 
 interface Props {
   blueprint: Blueprint;
+  blueprintId?: string | null;
   onRevision: () => void;
+  onRefine: (instructions: string) => void;
 }
 
-export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => {
+const ADMIN_WHATSAPP = "6285828676589";
+
+export const BlueprintDisplay: React.FC<Props> = ({ blueprint, blueprintId, onRevision, onRefine }) => {
   const [copiedType, setCopiedType] = React.useState<string | null>(null);
   const [exporting, setExporting] = React.useState(false);
   const [includeFeedback, setIncludeFeedback] = React.useState(false);
+  const [refinementText, setRefinementText] = React.useState('');
   const blueprintRef = React.useRef<HTMLDivElement>(null);
 
   const copyToClipboard = (text: string, type: string) => {
@@ -24,99 +34,144 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
     setTimeout(() => setCopiedType(null), 2000);
   };
 
+  const handleConsultation = () => {
+    if (!ADMIN_WHATSAPP) return;
+    window.open(`https://wa.me/${ADMIN_WHATSAPP}`, '_blank');
+  };
+
+  const isExporting = exporting;
+
   const handleExportPDF = async () => {
     if (!blueprintRef.current || exporting) return;
     
-    // Start loading state
+    // Prevent double-click/tap and provide immediate feedback
     setExporting(true);
 
-    // Give browser a moment to render the loading state before heavy processing
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    const element = blueprintRef.current;
-    const fileName = `CommunityOS-${blueprint.event_meta.title.replace(/\s+/g, '-')}.pdf`;
-    
-    // Detect mobile for lower scale to prevent crash
-    const isMobile = window.innerWidth < 768;
-    const exportScale = isMobile ? 1.5 : 2;
-
-    const opt = {
-      margin: [10, 10, 10, 10] as [number, number, number, number],
-      filename: fileName,
-      image: { type: 'jpeg' as const, quality: 0.95 },
-      html2canvas: { 
-        scale: exportScale, 
-        useCORS: true,
-        logging: false,
-        letterRendering: true,
-        allowTaint: true,
-        onclone: (clonedDoc: Document) => {
-          const feedbackElement = clonedDoc.getElementById('feedback-section-container');
-          if (feedbackElement && !includeFeedback) {
-            feedbackElement.style.display = 'none';
-          }
-          
-          // Force a consistent width for the export container in the clone
-          const cloneContainer = clonedDoc.querySelector('.pdf-export');
-          if (cloneContainer instanceof HTMLElement) {
-            cloneContainer.style.width = '750px'; // Optimized for A4 aspect ratio and mobile-friendly render
-            cloneContainer.style.padding = '30px';
-          }
-        }
-      },
-      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
-      pagebreak: { mode: ['avoid-all' as const, 'css' as const, 'legacy' as const] }
-    };
-
     try {
-      element.classList.add('pdf-export');
+      // Human-centered wait state to allow UI to settle
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const element = blueprintRef.current;
+      const fileName = `CommunityOS-Blueprint-${blueprint.event_meta.title.replace(/\s+/g, '-')}.pdf`;
       
-      // Use the promise-based API for more stable execution
-      const worker = html2pdf().from(element).set(opt);
-      await worker.save();
+      const isMobile = window.innerWidth < 768;
+      const exportScale = isMobile ? 1.25 : 1.5; 
+
+      const opt = {
+        margin: [15, 10, 15, 10] as [number, number, number, number],
+        filename: fileName,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { 
+          scale: exportScale, 
+          useCORS: true,
+          logging: false,
+          letterRendering: true,
+          onclone: (clonedDoc: Document) => {
+            const feedbackElement = clonedDoc.getElementById('feedback-section-container');
+            if (feedbackElement && !includeFeedback) {
+              feedbackElement.style.display = 'none';
+            }
+            
+            // SIMPLIFY FOR PDF STABILITY - Remove complex rendering effects
+            const allElements = clonedDoc.querySelectorAll('*');
+            allElements.forEach((el) => {
+              if (el instanceof HTMLElement) {
+                el.style.boxShadow = 'none';
+                el.style.textShadow = 'none';
+                el.style.animation = 'none';
+                el.style.transition = 'none';
+                if (el.style.backdropFilter) el.style.backdropFilter = 'none';
+                if (el.classList.contains('bg-white/95')) {
+                  el.style.background = '#ffffff';
+                }
+              }
+            });
+
+            const cloneContainer = clonedDoc.querySelector('.pdf-export');
+            if (cloneContainer instanceof HTMLElement) {
+              cloneContainer.style.width = '700px'; 
+              cloneContainer.style.background = '#ffffff';
+              cloneContainer.style.padding = '40px';
+              cloneContainer.style.borderRadius = '0px';
+            }
+
+            // High Contrast for PDF
+            const titles = clonedDoc.querySelectorAll('h1, h2, h3');
+            titles.forEach(t => {
+               if (t instanceof HTMLElement) {
+                 t.style.color = '#0f172a';
+                 if (t.tagName === 'H1') t.style.color = '#ffffff'; // Keep hero title white
+               }
+            });
+
+            const badges = clonedDoc.querySelectorAll('.pdf-badge-fix');
+            badges.forEach(b => {
+              if (b instanceof HTMLElement) {
+                b.style.background = '#f1f5f9';
+                b.style.color = '#475569';
+                b.style.border = '1px solid #e2e8f0';
+                b.style.opacity = '1';
+                b.style.display = 'inline-block';
+              }
+            });
+          }
+        },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const },
+        pagebreak: { mode: ['avoid-all' as const, 'css' as const, 'legacy' as const] }
+      };
+
+      element.classList.add('pdf-export');
+      await html2pdf().from(element).set(opt).save();
       
       toast.success("Blueprint berhasil diunduh.");
     } catch (error) {
       console.error('PDF Export failed:', error);
-      toast.error("Sistem sedang mengoptimalkan dokumen unduhan. Silakan coba beberapa saat lagi 🙏");
+      toast.error("Maaf, terjadi kendala saat merangkai dokumen. Tim CommunityOS sedang melakukan perbaikan otomatis. Silakan coba lagi sebentar lagi.");
     } finally {
-      element.classList.remove('pdf-export');
+      if (blueprintRef.current) {
+        blueprintRef.current.classList.remove('pdf-export');
+      }
       setExporting(false);
     }
   };
 
   const getScaleBadgeColor = (scale: string) => {
     switch (scale) {
-      case 'Gerilya Scale': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'Community Scale': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'Regional Scale': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'Massive Scale': return 'bg-rose-100 text-rose-700 border-rose-200';
-      default: return 'bg-slate-100 text-slate-700 border-slate-200';
+      case 'Gerilya Scale': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'Community Scale': return 'bg-blue-50 text-blue-600 border-blue-100';
+      case 'Regional Scale': return 'bg-amber-50 text-amber-600 border-amber-100';
+      case 'Massive Scale': return 'bg-rose-50 text-rose-600 border-rose-100';
+      default: return 'bg-slate-50 text-slate-600 border-slate-100';
     }
   };
 
   return (
-    <div className="space-y-16 md:space-y-24 max-w-2xl mx-auto pb-32">
+    <div className="space-y-20 md:space-y-32 max-w-2xl mx-auto pb-48">
+      <LoadingOverlay 
+        isVisible={exporting} 
+        message="Sistem sedang menjahit blueprint Anda menjadi dokumen PDF yang rapi..." 
+      />
+
       {/* Export Controls */}
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white/90 backdrop-blur-lg p-5 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 sticky top-6 z-50 overflow-hidden"
+        className="bg-white/95 backdrop-blur-lg p-6 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 sticky top-6 z-50 px-8"
       >
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-200">
-            <Settings2 className="w-5 h-5 text-white" />
+          <div className="flex-shrink-0">
+            <BrandLogo size="sm" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-semibold text-slate-800 uppercase tracking-[0.2em]">Opsi Export</span>
-            <label className="flex items-center gap-2 cursor-pointer group mt-1">
+            <span className="text-[11px] font-bold text-slate-800 tracking-tight leading-none uppercase">Opsi Berbagi</span>
+            <label className="flex items-center gap-2 cursor-pointer group mt-1.5">
               <input 
                 type="checkbox" 
                 checked={includeFeedback} 
                 onChange={(e) => setIncludeFeedback(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-200 text-teal-600 focus:ring-teal-500/20"
+                className="w-3.5 h-3.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500/20"
               />
-              <span className="text-xs font-medium text-slate-400 group-hover:text-slate-600 transition-colors uppercase tracking-wider">Sertakan Feedback Form</span>
+              <span className="text-[9px] font-bold text-slate-400 group-hover:text-slate-600 transition-colors tracking-widest uppercase">Sertakan formulir masukan</span>
             </label>
           </div>
         </div>
@@ -124,14 +179,18 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
         <button 
           onClick={handleExportPDF}
           disabled={exporting}
-          className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-teal-600 transition-all disabled:bg-slate-200 disabled:cursor-not-allowed shadow-lg shadow-slate-100"
+          className={`w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 rounded-2xl text-xs font-bold transition-all shadow-lg active:scale-95 ${
+            exporting 
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' 
+              : 'bg-slate-900 text-white hover:bg-teal-600 shadow-slate-200'
+          }`}
         >
           {exporting ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <FileDown className="w-4 h-4" />
           )}
-          <span>{exporting ? 'Menyiapkan PDF...' : 'Download PDF Blueprint'}</span>
+          <span>{exporting ? 'Menyiapkan Dokumen...' : 'Unduh PDF Blueprint'}</span>
         </button>
       </motion.div>
 
@@ -140,41 +199,42 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-slate-900 p-8 md:p-12 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group"
+        className="bg-slate-900 p-10 md:p-14 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden"
       >
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900 to-teal-900/40" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/10 blur-[130px] -mr-48 -mt-48" />
         
-        <div className="relative space-y-10">
-          <div className="flex flex-wrap gap-3">
-            <span className="text-[10px] font-semibold bg-white/10 px-4 py-1.5 rounded-full uppercase tracking-[0.2em] border border-white/5">
-              Strategy: {blueprint.event_meta.strategy}
+        <div className="relative space-y-12">
+          <div className="flex flex-wrap gap-2">
+            <span className="text-[10px] font-bold bg-white/20 px-4 py-2 rounded-full border border-white/30 tracking-widest uppercase mb-1 pdf-badge-fix">
+              Strategi: {blueprint.event_meta.strategy}
             </span>
-            <span className={`text-[10px] font-semibold px-4 py-1.5 rounded-full uppercase tracking-[0.2em] border ${getScaleBadgeColor(blueprint.event_meta.scale_classification)}`}>
+            <span className={`text-[10px] font-bold px-4 py-2 rounded-full border tracking-widest uppercase bg-opacity-30 border-opacity-50 pdf-badge-fix ${getScaleBadgeColor(blueprint.event_meta.scale_classification)}`}>
               {blueprint.event_meta.scale_classification}
             </span>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-display font-bold">
+          <h1 className="text-3xl md:text-5xl font-display font-bold leading-tight tracking-tight text-white drop-shadow-sm">
             {blueprint.event_meta.title}
           </h1>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-10 border-t border-white/10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-12 border-t border-white/20">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 shadow-inner">
-                <MapPin className="w-6 h-6 text-teal-400" />
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 text-teal-300">
+                <MapPin className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.2em]">Lokasi Kegiatan</p>
-                <p className="text-base md:text-lg font-semibold text-white/90">{blueprint.event_meta.location}</p>
+                <p className="text-[9px] font-bold text-white/50 tracking-widest uppercase mb-1">Lokasi Kegiatan</p>
+                <p className="text-base font-semibold text-white/90">{blueprint.event_meta.location}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 shadow-inner">
-                <CreditCard className="w-6 h-6 text-emerald-400" />
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 text-emerald-300">
+                <CreditCard className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-[10px] font-semibold text-white/40 uppercase tracking-[0.2em]">Estimasi Alokasi Dana</p>
-                <p className="text-base md:text-lg font-semibold text-emerald-300">Rp {blueprint.event_meta.budget.toLocaleString('id-ID')}</p>
+                <p className="text-[9px] font-bold text-white/50 tracking-widest uppercase mb-1">Alokasi Dana</p>
+                <p className="text-base font-bold text-emerald-300">Rp {blueprint.event_meta.budget.toLocaleString('id-ID')}</p>
               </div>
             </div>
           </div>
@@ -182,17 +242,20 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
       </motion.div>
 
       {/* Operational Metadata */}
-      <section className="bg-white p-10 md:p-14 rounded-[3rem] shadow-sm border border-slate-100 space-y-12">
+      <section className="bg-white p-10 md:p-14 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-14">
         <div className="flex items-center gap-3">
-          <Settings2 className="w-5 h-5 text-slate-300" />
-          <h3 className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.2em]">Operational Metadata</h3>
+          <Settings2 className="w-4 h-4 text-slate-300" />
+          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Analisis Operasional</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Scale Classification */}
           <div className={`p-6 rounded-[2rem] border ${getScaleBadgeColor(blueprint.event_meta.scale_classification)} flex flex-col gap-4 group transition-all`}>
             <div className="flex justify-between items-start">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-50">Blueprint Scale</span>
+              <div className="flex items-center gap-1.5 opacity-50">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Skala Blueprint</span>
+                <HelpTooltip {...GUIDANCE_DATA.BLUEPRINT_SCALE} />
+              </div>
               <Gauge className="w-5 h-5 opacity-40 group-hover:opacity-100 transition-opacity" />
             </div>
             <div className="space-y-2">
@@ -208,8 +271,11 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
 
           {/* Operational Complexity */}
           <div className="p-6 rounded-[2rem] border border-slate-100 bg-slate-50/50 flex flex-col gap-5">
-            <div className="flex justify-between items-center text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-              <span>Complexity</span>
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span>Kerumitan</span>
+                <HelpTooltip {...GUIDANCE_DATA.OPERATIONAL_COMPLEXITY} />
+              </div>
               <span className="text-slate-800 font-mono">{blueprint.event_meta.operational_complexity}%</span>
             </div>
             <div className="space-y-3">
@@ -232,8 +298,11 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
 
           {/* Burnout Risk */}
           <div className="p-6 rounded-[2rem] border border-slate-100 bg-slate-50/50 flex flex-col gap-5">
-            <div className="flex justify-between items-center text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-              <span>Burnout Risk</span>
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span>Risiko Burnout</span>
+                <HelpTooltip {...GUIDANCE_DATA.BURNOUT_RISK} />
+              </div>
               <span className="text-slate-800 font-mono">{blueprint.event_meta.burnout_risk}%</span>
             </div>
             <div className="space-y-3">
@@ -257,7 +326,10 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
           {/* Budget Pressure */}
           <div className="p-6 rounded-[2rem] border border-slate-100 bg-slate-50/50 flex flex-col gap-5">
             <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-              <span>Budget Pressure</span>
+              <div className="flex items-center gap-1.5 leading-none">
+                <span>Tekanan Dana</span>
+                <HelpTooltip {...GUIDANCE_DATA.BUDGET_PRESSURE} />
+              </div>
               <span className="text-slate-800 font-mono">{blueprint.event_meta.budget_pressure}%</span>
             </div>
             <div className="space-y-3">
@@ -281,7 +353,10 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
           {/* Coordination Intensity */}
           <div className="p-6 rounded-[2rem] border border-slate-100 bg-slate-50/50 flex flex-col gap-5">
             <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-              <span>Coordination</span>
+              <div className="flex items-center gap-1.5 leading-none">
+                <span>Intensitas Rapat</span>
+                <HelpTooltip {...GUIDANCE_DATA.COORDINATION_INTENSITY} />
+              </div>
               <span className="text-slate-800 font-mono">{blueprint.event_meta.coordination_intensity}%</span>
             </div>
             <div className="space-y-3">
@@ -325,7 +400,7 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
       <div className="grid grid-cols-1 gap-8">
         {/* Budget Allocation */}
         <section>
-          <div className="flex items-center justify-between mb-6 px-1">
+          <div className="flex items-center justify-between mb-8 px-2">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center">
                 <CreditCard className="w-5 h-5 text-teal-600" />
@@ -333,26 +408,26 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
               <h2 className="text-xl font-display font-semibold text-slate-800">Budget Survival</h2>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 gap-8">
             {blueprint.operational.budget_allocation.map((item, index) => (
               <motion.div 
                 key={index} 
-                className="bg-white p-8 md:p-10 rounded-[2rem] shadow-sm border border-slate-100 hover:border-teal-100 transition-colors group"
+                className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-slate-100 hover:border-teal-100 transition-colors group"
               >
-                <div className="flex justify-between items-start mb-6">
+                <div className="flex justify-between items-start mb-8">
                   <div className="space-y-1.5">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold text-slate-400">Pos Alokasi</span>
+                    <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Pos Alokasi</span>
                     <h3 className="font-semibold text-xl text-slate-800 group-hover:text-teal-600 transition-colors">{item.item}</h3>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold text-slate-400">Estimasi</span>
+                    <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Estimasi</span>
                     <p className="text-teal-700 font-mono font-bold text-lg">Rp {item.amount.toLocaleString('id-ID')}</p>
                   </div>
                 </div>
                 <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
                   <p className="text-sm text-slate-600 italic flex items-start gap-4">
                     <Zap className="w-5 h-5 text-teal-500 mt-0.5 flex-shrink-0" />
-                    <span className="leading-[1.7]">{item.label}</span>
+                    <span className="leading-[1.7] font-medium">{item.label}</span>
                   </p>
                 </div>
               </motion.div>
@@ -362,7 +437,7 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
 
         {/* Rundown */}
         <section>
-          <div className="flex items-center justify-between mb-6 px-1">
+          <div className="flex items-center justify-between mb-8 px-2">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
                 <Calendar className="w-5 h-5 text-emerald-600" />
@@ -374,20 +449,20 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
                 const text = blueprint.operational.rundown.map(r => `${r.time}: ${r.task}`).join('\n');
                 copyToClipboard(text, 'rundown');
               }}
-              className="flex items-center gap-2 text-[10px] font-semibold text-slate-400 hover:text-teal-600 uppercase tracking-[0.2em] transition-colors"
+              className="flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-teal-600 uppercase tracking-widest transition-colors"
             >
               {copiedType === 'rundown' ? <Check className="w-4 h-4" /> : <ClipboardList className="w-4 h-4" />}
               {copiedType === 'rundown' ? 'Tersalin' : 'Salin Rundown'}
             </button>
           </div>
-          <div className="bg-white p-10 md:p-14 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-10 relative">
-            <div className="absolute left-10 md:left-14 top-14 bottom-14 w-px bg-slate-100" />
+          <div className="bg-white p-10 md:p-16 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-12 relative overflow-hidden">
+            <div className="absolute left-10 md:left-16 top-16 bottom-16 w-px bg-slate-100" />
             
             {blueprint.operational.rundown.map((item, index) => (
-              <div key={index} className="flex items-start gap-6 md:gap-10 relative group">
-                <div className="w-5 h-5 rounded-full bg-white border-[4px] border-emerald-500 z-10 flex-shrink-0 mt-1 shadow-sm group-hover:scale-125 transition-transform" />
+              <div key={index} className="flex items-start gap-8 md:gap-12 relative group">
+                <div className="w-4 h-4 rounded-full bg-white border-[3px] border-emerald-500 z-10 flex-shrink-0 mt-1.5 shadow-sm group-hover:scale-125 transition-transform" />
                 <div className="space-y-3">
-                  <span className="px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold uppercase tracking-[0.2em]">{item.time}</span>
+                  <span className="px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-widest">{item.time}</span>
                   <p className="text-slate-800 font-semibold text-lg md:text-xl leading-relaxed">{item.task}</p>
                 </div>
               </div>
@@ -399,19 +474,19 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
       {/* Outreach Section */}
       <section className="bg-white p-10 md:p-14 rounded-[3.5rem] shadow-sm border border-slate-100 space-y-14">
         <div className="flex items-center gap-5">
-          <div className="w-14 h-14 rounded-[1.5rem] bg-indigo-50 flex items-center justify-center shadow-lg shadow-indigo-100/50">
+          <div className="w-14 h-14 rounded-[1.5rem] bg-indigo-50 flex items-center justify-center">
             <Share2 className="w-7 h-7 text-indigo-600" />
           </div>
-          <h2 className="text-2xl md:text-3xl font-display font-semibold text-slate-800">Outreach & Partner</h2>
+          <h2 className="text-2xl font-display font-semibold text-slate-800">Outreach & Partner</h2>
         </div>
         
-        <div className="space-y-12">
+        <div className="space-y-14">
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.3em] opacity-70">Partner Lokal Potensial</h3>
+            <div className="flex justify-between items-center mb-8 px-1">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Partner Lokal Potensial</h3>
               <button
                 onClick={() => copyToClipboard(blueprint.outreach.local_partners.join(', '), 'partners')}
-                className="text-[10px] font-semibold text-slate-300 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-2"
+                className="text-[10px] font-bold text-slate-300 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-2"
               >
                 {copiedType === 'partners' ? <Check className="w-4 h-4" /> : <Handshake className="w-4 h-4" />}
                 Salin Partner
@@ -419,7 +494,7 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
             </div>
             <div className="flex flex-wrap gap-3">
               {blueprint.outreach.local_partners.map((partner, index) => (
-                <span key={index} className="bg-white text-slate-700 text-xs font-semibold px-4 py-2 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-indigo-200 cursor-default">
+                <span key={index} className="bg-slate-50 text-slate-700 text-xs font-semibold px-5 py-3 rounded-2xl border border-slate-100 transition-all hover:border-indigo-100 cursor-default">
                   {partner}
                 </span>
               ))}
@@ -427,17 +502,17 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.3em] opacity-70">Instagram Caption Kit</h3>
+            <div className="flex justify-between items-center mb-8 px-1">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Instagram Caption Kit</h3>
               <button
                 onClick={() => copyToClipboard(blueprint.outreach.ig_caption, 'caption')}
-                className="flex items-center gap-2 text-[10px] font-semibold text-slate-400 hover:text-teal-600 uppercase tracking-widest transition-colors"
+                className="flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-teal-600 uppercase tracking-widest transition-colors"
               >
                 {copiedType === 'caption' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copiedType === 'caption' ? 'Tersalin' : 'Salin Caption'}
+                Salin Caption
               </button>
             </div>
-            <div className="p-8 bg-slate-50/50 rounded-[2.5rem] text-[15px] md:text-base text-slate-600 whitespace-pre-wrap font-sans border border-slate-100 leading-[1.8] italic shadow-inner">
+            <div className="p-10 bg-slate-50/50 rounded-[2.5rem] text-sm md:text-base text-slate-600 whitespace-pre-wrap font-sans border border-slate-100 leading-relaxed italic shadow-inner">
               {blueprint.outreach.ig_caption}
             </div>
           </div>
@@ -447,21 +522,97 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
       {/* Feedback Section */}
       <div id="feedback-section-container" className="space-y-12">
         <FeedbackSection />
+
+        {/* Collaboration Hub */}
+        {blueprintId && (
+          <motion.section 
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white p-10 md:p-14 rounded-[3.5rem] shadow-xl shadow-teal-900/5 border border-teal-100/50"
+          >
+            <CollaboratorsManager blueprintId={blueprintId} />
+          </motion.section>
+        )}
+
+        {/* Refinement Hub - Iterative Planning */}
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white p-10 md:p-14 rounded-[3.5rem] shadow-xl shadow-teal-900/5 border border-teal-100/50 space-y-10 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 blur-[100px] -mr-32 -mt-32" />
+          
+          <div className="space-y-6 relative">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-[1.5rem] bg-teal-50 flex items-center justify-center shadow-lg shadow-teal-100/50">
+                <Settings2 className="w-7 h-7 text-teal-600" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-2xl md:text-3xl font-display font-semibold text-slate-800">Refinement Hub</h2>
+                <p className="text-sm text-slate-400 font-medium leading-relaxed italic">"Iterasi blueprint ini agar lebih presisi dan manusiawi"</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] px-1">
+                Apa yang ingin Anda sesuaikan?
+              </label>
+              <textarea
+                value={refinementText}
+                onChange={(e) => setRefinementText(e.target.value)}
+                placeholder="Contoh: Budgetnya terlalu mahal, tolong kurangi. Atau: Kurangi jumlah panitia agar tidak terlalu padat."
+                className="w-full min-h-[120px] p-6 bg-slate-50 border border-slate-100 rounded-[2rem] text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-teal-500/5 focus:border-teal-200 transition-all resize-none font-medium leading-relaxed"
+              />
+              <div className="flex flex-col md:flex-row items-center gap-4 pt-2">
+                <button
+                  onClick={() => {
+                    if (refinementText.trim()) {
+                      onRefine(refinementText);
+                      setRefinementText('');
+                    } else {
+                      toast.error("Berikan instruksi revisi terlebih dahulu.");
+                    }
+                  }}
+                  className="w-full md:flex-1 bg-teal-600 text-white p-5 rounded-[1.5rem] text-sm font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                >
+                  <RefreshCcw className="w-5 h-5" />
+                  <span>Update Blueprint Progressif</span>
+                </button>
+                <div className="hidden md:block w-px h-10 bg-slate-100" />
+                <button
+                  onClick={onRevision}
+                  className="w-full md:w-auto px-8 p-5 bg-white border border-slate-200 text-slate-600 rounded-[1.5rem] text-sm font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
+                >
+                  Mulai Dari Awal
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 bg-amber-50/50 border border-amber-100 rounded-2xl flex items-start gap-4">
+              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-800 leading-relaxed italic font-medium">
+                <strong>Catatan Operasional:</strong> CommunityOS akan menjaga konteks awal komunitas Anda sembari menyesuaikan elemen-elemen spesifik berdasarkan feedback ini.
+              </p>
+            </div>
+          </div>
+        </motion.section>
         
         {/* Revision & Continuity Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={onRevision}
-            className="flex items-start gap-4 p-6 bg-white border border-slate-100 rounded-[2rem] hover:border-teal-200 transition-all group text-left"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center group-hover:bg-teal-500 group-hover:text-white transition-all flex-shrink-0 shadow-sm">
-              <RefreshCcw className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-base font-semibold text-slate-800">Perbaiki Strategi</p>
-              <p className="text-xs text-slate-400 font-medium leading-relaxed italic">"Buat Versi Revisi untuk hasil yang lebih presisi"</p>
-            </div>
-          </button>
+          {ADMIN_WHATSAPP && (
+            <button
+              onClick={handleConsultation}
+              className="flex items-start gap-4 p-6 bg-white border border-slate-100 rounded-[2rem] hover:border-teal-200 transition-all group text-left"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center group-hover:bg-teal-500 group-hover:text-white transition-all flex-shrink-0 shadow-sm">
+                <ClipboardList className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-slate-800">Konsultasi Lanjut</p>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed italic">"Hubungi fasilitator CommunityOS untuk mentoring"</p>
+              </div>
+            </button>
+          )}
           
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -471,22 +622,27 @@ export const BlueprintDisplay: React.FC<Props> = ({ blueprint, onRevision }) => 
               <ArrowLeft className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <p className="text-base font-semibold text-slate-800">Lanjutkan Blueprint</p>
-              <p className="text-xs text-slate-400 font-medium leading-relaxed italic">"Simpan sebagai aksi dan mulai eksekusi"</p>
+              <p className="text-base font-semibold text-slate-800">Tinjau Ulang Blueprint</p>
+              <p className="text-xs text-slate-400 font-medium leading-relaxed italic">"Kembali ke bagian atas untuk detail operasional"</p>
             </div>
           </button>
         </div>
       </div>
 
-      <div className="text-center pt-8 border-t border-slate-100/50">
-        <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.4em] mb-2">
-          Community<span className="text-teal-500">OS</span>
-        </p>
-        <p className="text-[8px] text-slate-300 font-semibold uppercase tracking-widest italic">
-          AI Operating System for Communities in Indonesia
-        </p>
+      <div className="text-center pt-8 border-t border-slate-100/50 space-y-4">
+        <div className="flex justify-center">
+          <BrandLogo size="sm" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em]">
+            Community<span className="text-teal-600">OS</span>
+          </p>
+          <p className="text-[8px] text-slate-300 font-bold uppercase tracking-widest italic leading-none">
+            AI Operating System for Communities in Indonesia
+          </p>
+        </div>
+      </div>
       </div>
     </div>
-  </div>
   );
 };

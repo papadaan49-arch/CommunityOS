@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { GoogleGenAI, Type } from "@google/genai";
 
 async function startServer() {
   const app = express();
@@ -8,7 +9,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API Routes (Add any Non-AI API routes here)
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });

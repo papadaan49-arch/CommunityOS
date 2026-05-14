@@ -42,14 +42,14 @@ export const LoadingState: React.FC<Props> = ({ message, progress }) => {
       <div className="space-y-8 w-full max-w-sm px-4">
         <div className="space-y-3">
           <div className="flex justify-between items-end px-1">
-            <h2 className="text-xl md:text-2xl font-display font-extrabold text-slate-900">
-              Community AI Thinking
+            <h2 className="text-xl md:text-2xl font-display font-semibold text-slate-900 leading-tight">
+              AI Sedang Memproses
             </h2>
-            <span className="text-xs font-black text-teal-600 font-mono tracking-tighter">
+            <span className="text-sm font-bold text-teal-600 font-mono tracking-tighter">
               {progress}<span className="text-[10px] ml-0.5">%</span>
             </span>
           </div>
-          <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-50">
+          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-50">
             <motion.div 
               className="h-full bg-slate-900 rounded-full"
               initial={{ width: 0 }}
@@ -68,9 +68,9 @@ export const LoadingState: React.FC<Props> = ({ message, progress }) => {
               exit={{ y: -20, opacity: 0, filter: 'blur(10px)' }}
               className="flex flex-col items-center gap-2"
             >
-              <div className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-100 rounded-2xl shadow-sm">
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
                 <Sparkles className="w-3.5 h-3.5 text-teal-500 animate-pulse" />
-                <span className="text-slate-700 font-bold text-xs uppercase tracking-widest whitespace-nowrap">
+                <span className="text-slate-700 font-semibold text-xs tracking-wide whitespace-nowrap">
                   {message}
                 </span>
               </div>

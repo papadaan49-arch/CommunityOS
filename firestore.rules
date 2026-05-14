@@ -1,42 +1,81 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny
+    // 0. Default Deny
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper functions
-    function isValidId(id) { 
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
     }
-    
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
     function isValidBlueprint(data) {
-      return data.keys().hasAll([
-        'event_name', 'organization', 'city', 'event_type', 
-        'participants', 'committee_count', 'budget', 'blueprint_scale', 
-        'burnout_risk', 'operational_complexity', 'coordination_intensity', 
-        'wellbeing_risk_level', 'timestamp'
-      ]) && data.keys().size() == 13
-      && data.event_name is string && data.event_name.size() <= 200
-      && data.organization is string && data.organization.size() <= 200
-      && data.city is string && data.city.size() <= 100
-      && data.event_type is string && data.event_type.size() <= 50
-      && data.participants is number && data.participants >= 0
-      && data.committee_count is number && data.committee_count >= 0
-      && data.budget is number && data.budget >= 0
-      && data.blueprint_scale is string
-      && data.burnout_risk is number && data.burnout_risk >= 1 && data.burnout_risk <= 100
-      && data.operational_complexity is number && data.operational_complexity >= 1 && data.operational_complexity <= 100
-      && data.coordination_intensity is number && data.coordination_intensity >= 1 && data.coordination_intensity <= 100
-      && data.wellbeing_risk_level in ['Green', 'Amber', 'Red']
-      && data.timestamp is number;
+      return data.keys().hasAll(['data', 'originalData', 'ownerId', 'createdAt', 'updatedAt'])
+        && data.ownerId == request.auth.uid
+        && data.ownerId is string
+        && (data.get('collaborators', []) is list)
+        && (data.get('isPublic', false) is bool)
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    // --- Match Blocks ---
+
+    match /users/{userId} {
+      match /public/profile {
+        allow read: if isSignedIn();
+        allow write: if isOwner(userId);
+      }
+    }
+
+    match /users_by_email/{email} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.token.email == email;
     }
 
     match /blueprints/{blueprintId} {
-      allow create: if isValidId(blueprintId) && isValidBlueprint(request.resource.data);
-      // No public read for now to prevent scraping, but ready for future analytics if needed (with auth)
-      allow read, update, delete: if false; 
+      allow get: if isValidId(blueprintId) && (
+        existing().ownerId == request.auth.uid || 
+        request.auth.uid in existing().get('collaborators', []) ||
+        existing().get('isPublic', false) == true
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid || 
+        request.auth.uid in resource.data.get('collaborators', [])
+      );
+
+      allow create: if isValidId(blueprintId) && isSignedIn() && isValidBlueprint(incoming());
+
+      allow update: if isValidId(blueprintId) && isSignedIn() && (
+        (existing().ownerId == request.auth.uid || request.auth.uid in existing().get('collaborators', [])) 
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['data', 'originalData', 'collaborators', 'isPublic', 'updatedAt'])
+      );
+
+      allow delete: if isValidId(blueprintId) && isOwner(existing().ownerId);
     }
   }
 }

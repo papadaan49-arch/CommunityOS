@@ -1,45 +1,49 @@
 {
   "entities": {
-    "BlueprintMetadata": {
-      "title": "Blueprint Operational Metadata",
-      "description": "Structured operational metadata from CommunityOS blueprints",
+    "BlueprintDoc": {
+      "title": "BlueprintDoc",
+      "description": "A collaborative event blueprint used by groups and organizers.",
       "type": "object",
       "properties": {
-        "event_name": { "type": "string" },
-        "organization": { "type": "string" },
-        "city": { "type": "string" },
-        "event_type": { "type": "string" },
-        "participants": { "type": "number" },
-        "committee_count": { "type": "number" },
-        "budget": { "type": "number" },
-        "blueprint_scale": { "type": "string" },
-        "burnout_risk": { "type": "number" },
-        "operational_complexity": { "type": "number" },
-        "coordination_intensity": { "type": "number" },
-        "wellbeing_risk_level": { "type": "string" },
-        "timestamp": { "type": "number" }
+        "data": { "type": "object", "description": "The generated blueprint data." },
+        "originalData": { "type": "object", "description": "The original input parameters used for generation." },
+        "ownerId": { "type": "string", "description": "UID of the creator." },
+        "collaborators": { "type": "array", "description": "List of user IDs allowed to edit/view." },
+        "isPublic": { "type": "boolean", "description": "Whether anyone with the link can view." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "event_name",
-        "organization",
-        "city",
-        "event_type",
-        "participants",
-        "committee_count",
-        "budget",
-        "blueprint_scale",
-        "burnout_risk",
-        "operational_complexity",
-        "coordination_intensity",
-        "wellbeing_risk_level",
-        "timestamp"
-      ]
+      "required": ["data", "originalData", "ownerId", "createdAt", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public user profile information.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "email": { "type": "string" }
+      }
     }
   },
   "firestore": {
     "/blueprints/{blueprintId}": {
-      "schema": "BlueprintMetadata",
-      "description": "Publicly generated blueprint metadata for operational insights"
+      "schema": "BlueprintDoc",
+      "description": "Collection of collaborative blueprints."
+    },
+    "/users/{userId}/public/profile": {
+      "schema": "UserProfile",
+      "description": "Public user profile metadata."
+    },
+    "/users_by_email/{email}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "uid": { "type": "string" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "description": "Index to look up user ID by email."
     }
   }
 }

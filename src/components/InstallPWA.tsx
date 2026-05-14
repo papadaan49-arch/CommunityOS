@@ -90,9 +90,9 @@ export const InstallPWA: React.FC = () => {
             <img src="/icon-512.png" alt="CommunityOS" className="w-full h-full object-cover rounded-md" />
           </div>
           
-          <div className="flex-1 space-y-1 pr-6">
-            <h4 className="text-sm font-bold">Pasang CommunityOS ✨</h4>
-            <p className="text-[10px] text-slate-400 leading-tight italic">
+            <div className="flex-1 space-y-1 pr-6">
+            <h4 className="text-sm font-semibold">Pasang CommunityOS ✨</h4>
+            <p className="text-[10px] text-slate-400 leading-relaxed italic">
               Akses cepat blueprint kegiatan komunitas langsung dari layar utama kamu tanpa buka browser lagi.
             </p>
           </div>

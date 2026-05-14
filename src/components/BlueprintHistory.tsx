@@ -139,7 +139,7 @@ export const BlueprintHistory: React.FC<BlueprintHistoryProps> = ({ onSelect }) 
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               whileHover={{ y: -4, scale: 1.01 }}
-              whileActive={{ scale: 0.98 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onSelect(item)}
               className="group w-full text-left bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100 hover:border-teal-100 hover:shadow-xl hover:shadow-teal-100/5 transition-all flex items-center gap-6"
             >

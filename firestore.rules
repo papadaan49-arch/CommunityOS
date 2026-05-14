@@ -8,7 +8,7 @@ service cloud.firestore {
 
     // --- Helpers ---
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.email_verified == true;
     }
 
     function isOwner(userId) {
@@ -29,13 +29,12 @@ service cloud.firestore {
 
     // --- Entity Validations ---
 
-    function isValidBlueprint(data) {
+    function isValidBlueprint(data, isUpdate) {
       return data.keys().hasAll(['data', 'originalData', 'ownerId', 'createdAt', 'updatedAt'])
-        && data.ownerId == request.auth.uid
         && data.ownerId is string
         && (data.get('collaborators', []) is list)
         && (data.get('isPublic', false) is bool)
-        && data.createdAt == request.time
+        && (isUpdate || data.createdAt == request.time)
         && data.updatedAt == request.time;
     }
 
@@ -65,13 +64,12 @@ service cloud.firestore {
         request.auth.uid in resource.data.get('collaborators', [])
       );
 
-      allow create: if isValidId(blueprintId) && isSignedIn() && isValidBlueprint(incoming());
+      allow create: if isValidId(blueprintId) && isSignedIn() && isValidBlueprint(incoming(), false) && incoming().ownerId == request.auth.uid;
 
-      allow update: if isValidId(blueprintId) && isSignedIn() && (
+      allow update: if isValidId(blueprintId) && isSignedIn() && isValidBlueprint(incoming(), true) && (
         (existing().ownerId == request.auth.uid || request.auth.uid in existing().get('collaborators', [])) 
         && incoming().ownerId == existing().ownerId
         && incoming().createdAt == existing().createdAt
-        && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly(['data', 'originalData', 'collaborators', 'isPublic', 'updatedAt'])
       );
 

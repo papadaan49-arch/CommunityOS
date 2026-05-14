@@ -15,26 +15,26 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
   
   const theme = {
     Red: {
-      bg: 'bg-rose-50/50',
-      border: 'border-rose-100/50',
+      bg: 'bg-rose-50',
+      border: 'border-rose-100',
       icon: 'text-rose-500',
-      badge: 'bg-rose-100/30 text-rose-600',
+      badge: 'bg-rose-100 text-rose-700',
       accent: 'bg-rose-500',
       glow: 'shadow-rose-100'
     },
     Amber: {
-      bg: 'bg-amber-50/50',
-      border: 'border-amber-100/50',
+      bg: 'bg-amber-50',
+      border: 'border-amber-100',
       icon: 'text-amber-500',
-      badge: 'bg-amber-100/30 text-amber-600',
+      badge: 'bg-amber-100 text-amber-700',
       accent: 'bg-amber-500',
       glow: 'shadow-amber-100'
     },
     Green: {
-      bg: 'bg-emerald-50/50',
-      border: 'border-emerald-100/50',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-100',
       icon: 'text-emerald-500',
-      badge: 'bg-emerald-100/30 text-emerald-600',
+      badge: 'bg-emerald-100 text-emerald-700',
       accent: 'bg-emerald-500',
       glow: 'shadow-emerald-100'
     }
@@ -52,18 +52,18 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
     >
       <div className={`p-10 md:p-14 rounded-[calc(3rem-2px)] h-full ${theme.bg} border ${theme.border}`}>
         <div className="flex items-center justify-between mb-12 md:mb-16">
-          <div className="flex items-center gap-6">
-            <div className={`w-16 h-16 md:w-24 md:h-24 rounded-[1.75rem] flex items-center justify-center`}>
-              <BrandLogo size="lg" variant="wellbeing" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-2xl font-display font-semibold text-slate-800">Wellbeing Guard</h2>
-              <HelpTooltip {...GUIDANCE_DATA.WELLBEING_GUARD} />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] uppercase font-semibold px-3 py-1 rounded-full ${theme.badge}`}>
-                Status Keamanan Tim: {guard.risk_level}
-              </span>
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+            <BrandLogo size="lg" variant="wellbeing" />
+            <div className="space-y-4 text-center md:text-left">
+              <div className="space-y-1">
+                <h2 className="text-2xl font-display font-semibold text-slate-800">Wellbeing Guard</h2>
+                <HelpTooltip {...GUIDANCE_DATA.WELLBEING_GUARD} />
+              </div>
+              <div className="flex items-center justify-center md:justify-start gap-2">
+                <span className={`text-[10px] uppercase font-semibold px-3 py-1 rounded-full ${theme.badge}`}>
+                  Status Keamanan Tim: {guard.risk_level}
+                </span>
+              </div>
             </div>
           </div>
         </div>

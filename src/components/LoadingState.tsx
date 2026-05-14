@@ -2,6 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, Sparkles } from 'lucide-react';
 
+import { BrandLogo } from './BrandLogo';
+
 interface Props {
   message: string;
   progress: number;
@@ -17,13 +19,9 @@ export const LoadingState: React.FC<Props> = ({ message, progress }) => {
             rotate: [0, 2, -2, 0]
           }}
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center shadow-2xl shadow-teal-100 border border-slate-50 relative z-10 overflow-hidden p-4"
+          className="relative z-10"
         >
-          <img 
-            src="/icon-512.png" 
-            alt="CommunityOS Logo" 
-            className="w-full h-full object-cover rounded-xl" 
-          />
+          <BrandLogo size="lg" />
         </motion.div>
         
         {/* Animated Orbs */}

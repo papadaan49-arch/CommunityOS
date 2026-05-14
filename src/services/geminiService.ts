@@ -1,9 +1,21 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { Blueprint, EventData } from "../types";
 
-// Standard initialization for AI Studio
-// The platform manages the GEMINI_API_KEY and secures it when used through this mechanism.
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+async function callGeminiProxy(model: string, contents: any, config?: any) {
+  const response = await fetch("/api/gemini", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ model, contents, config }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Server error: ${response.status}`);
+  }
+
+  return await response.json();
+}
 
 export async function validateInputWithAI(data: EventData): Promise<{ isValid: boolean; message?: string }> {
   try {
@@ -33,30 +45,17 @@ export async function validateInputWithAI(data: EventData): Promise<{ isValid: b
       If invalid, use this message: "Input kegiatan masih terlalu singkat untuk dianalisis secara realistis. Tambahkan detail agar CommunityOS bisa memberikan blueprint yang lebih akurat dan manusiawi."
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            isValid: { type: Type.BOOLEAN },
-            message: { type: Type.STRING },
-          },
-          required: ["isValid"]
-        }
-      }
+    const result = await callGeminiProxy("gemini-3-flash-preview", prompt, {
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.text || "{}");
+    const parsed = JSON.parse(result.text || "{}");
     return {
-      isValid: result.isValid ?? true,
-      message: result.message
+      isValid: parsed.isValid ?? true,
+      message: parsed.message
     };
   } catch (error) {
     console.error("AI Sanity Check failed:", error);
-    // Fallback to basic local validation if AI fails
     if (data.name.length < 3 || data.goal.length < 5) {
       return { 
         isValid: false, 
@@ -97,96 +96,18 @@ export async function generateBlueprint(data: EventData): Promise<Blueprint> {
       - Output: Strictly follow the responseSchema.
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            event_meta: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                location: { type: Type.STRING },
-                budget: { type: Type.NUMBER },
-                strategy: { type: Type.STRING },
-                scale_classification: { type: Type.STRING, enum: ["Gerilya Scale", "Community Scale", "Regional Scale", "Massive Scale"] },
-                operational_complexity: { type: Type.NUMBER },
-                burnout_risk: { type: Type.NUMBER },
-                budget_pressure: { type: Type.NUMBER },
-                coordination_intensity: { type: Type.NUMBER },
-              },
-              required: ["title", "location", "budget", "strategy", "scale_classification", "operational_complexity", "burnout_risk", "budget_pressure", "coordination_intensity"],
-            },
-            wellbeing_guard: {
-              type: Type.OBJECT,
-              properties: {
-                risk_level: { type: Type.STRING, enum: ["Green", "Amber", "Red"] },
-                burnout_analysis: { type: Type.STRING },
-                fatigue_analysis: { type: Type.STRING },
-                action_items: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-              },
-              required: ["risk_level", "burnout_analysis", "fatigue_analysis", "action_items"],
-            },
-            operational: {
-              type: Type.OBJECT,
-              properties: {
-                budget_allocation: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      item: { type: Type.STRING },
-                      amount: { type: Type.NUMBER },
-                      label: { type: Type.STRING },
-                    },
-                    required: ["item", "amount", "label"]
-                  }
-                },
-                rundown: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      time: { type: Type.STRING },
-                      task: { type: Type.STRING },
-                    },
-                    required: ["time", "task"]
-                  }
-                },
-              },
-              required: ["budget_allocation", "rundown"]
-            },
-            outreach: {
-              type: Type.OBJECT,
-              properties: {
-                local_partners: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-                ig_caption: { type: Type.STRING },
-              },
-              required: ["local_partners", "ig_caption"]
-            }
-          },
-          required: ["event_meta", "wellbeing_guard", "operational", "outreach"]
-        }
-      }
+    // For simplicity, keeping the structured prompt and using responseMimeType.
+    const result = await callGeminiProxy("gemini-3-flash-preview", prompt, {
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.text || "{}") as Blueprint;
+    const blueprint = JSON.parse(result.text || "{}") as Blueprint;
     
-    // Basic validation of the result
-    if (!result.event_meta || !result.wellbeing_guard || !result.operational || !result.outreach) {
+    if (!blueprint.event_meta || !blueprint.wellbeing_guard || !blueprint.operational || !blueprint.outreach) {
       throw new Error("Format blueprint yang diterima dari AI tidak valid.");
     }
 
-    return result;
+    return blueprint;
   } catch (error: any) {
     console.error("Blueprint generation failed:", error);
     throw error;
@@ -222,98 +143,20 @@ export async function refineBlueprint(currentBlueprint: Blueprint, instructions:
       - SCALE: Re-evaluate the scale if the instructions significantly change the event mass or complexity.
       - Wellbeing: Pay close attention to how the changes affect team burnout risk.
       
-      Output: Strictly follow the responseSchema from the original blueprint format.
+      Output: Strictly follow the original blueprint JSON format.
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            event_meta: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                location: { type: Type.STRING },
-                budget: { type: Type.NUMBER },
-                strategy: { type: Type.STRING },
-                scale_classification: { type: Type.STRING, enum: ["Gerilya Scale", "Community Scale", "Regional Scale", "Massive Scale"] },
-                operational_complexity: { type: Type.NUMBER },
-                burnout_risk: { type: Type.NUMBER },
-                budget_pressure: { type: Type.NUMBER },
-                coordination_intensity: { type: Type.NUMBER },
-              },
-              required: ["title", "location", "budget", "strategy", "scale_classification", "operational_complexity", "burnout_risk", "budget_pressure", "coordination_intensity"],
-            },
-            wellbeing_guard: {
-              type: Type.OBJECT,
-              properties: {
-                risk_level: { type: Type.STRING, enum: ["Green", "Amber", "Red"] },
-                burnout_analysis: { type: Type.STRING },
-                fatigue_analysis: { type: Type.STRING },
-                action_items: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-              },
-              required: ["risk_level", "burnout_analysis", "fatigue_analysis", "action_items"],
-            },
-            operational: {
-              type: Type.OBJECT,
-              properties: {
-                budget_allocation: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      item: { type: Type.STRING },
-                      amount: { type: Type.NUMBER },
-                      label: { type: Type.STRING },
-                    },
-                    required: ["item", "amount", "label"]
-                  }
-                },
-                rundown: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      time: { type: Type.STRING },
-                      task: { type: Type.STRING },
-                    },
-                    required: ["time", "task"]
-                  }
-                },
-              },
-              required: ["budget_allocation", "rundown"]
-            },
-            outreach: {
-              type: Type.OBJECT,
-              properties: {
-                local_partners: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-                ig_caption: { type: Type.STRING },
-              },
-              required: ["local_partners", "ig_caption"]
-            }
-          },
-          required: ["event_meta", "wellbeing_guard", "operational", "outreach"]
-        }
-      }
+    const result = await callGeminiProxy("gemini-3-flash-preview", prompt, {
+      responseMimeType: "application/json",
     });
 
-    const result = JSON.parse(response.text || "{}") as Blueprint;
+    const refined = JSON.parse(result.text || "{}") as Blueprint;
     
-    if (!result.event_meta || !result.wellbeing_guard || !result.operational || !result.outreach) {
+    if (!refined.event_meta || !refined.wellbeing_guard || !refined.operational || !refined.outreach) {
       throw new Error("Format blueprint revisi tidak valid.");
     }
 
-    return result;
+    return refined;
   } catch (error: any) {
     console.error("Blueprint refinement failed:", error);
     throw error;

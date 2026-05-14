@@ -1,6 +1,5 @@
 {
   "name": "CommunityOS",
   "description": "Localized AI planning assistant for Indonesian volunteer communities.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "requestFramePermissions": []
 }

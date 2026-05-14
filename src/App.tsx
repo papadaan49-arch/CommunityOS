@@ -73,7 +73,7 @@ export default function App() {
   ];
 
   React.useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
     if (loading) {
       setLoadingProgress(0);
       setLoadingMessageIndex(0);
@@ -353,20 +353,20 @@ export default function App() {
               className="space-y-16 md:space-y-28"
             >
               <header className="space-y-8 text-center md:text-left">
-                <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
                   <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="border-4 border-white rounded-[2rem] shadow-2xl shadow-teal-100"
+                    className="flex-shrink-0"
                   >
                     <BrandLogo size="lg" />
                   </motion.div>
-                  <div className="space-y-3">
-                    <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest">
+                  <div className="space-y-4">
+                    <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest border border-teal-100/50">
                       <Sparkles className="w-3.5 h-3.5" />
                       AI Planning Assistant
                     </div>
-                    <h1 className="text-4xl md:text-6xl font-display font-bold text-slate-900">
+                    <h1 className="text-4xl md:text-6xl font-display font-bold text-slate-900 tracking-tight leading-[1.1]">
                       Halo, Teman Perjuangan! 👋
                     </h1>
                   </div>
@@ -390,11 +390,11 @@ export default function App() {
               )}
 
               <section className="pt-12 border-t border-slate-100/50">
-                <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-slate-400 group text-center md:text-left">
-                  <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                <div className="flex flex-col md:flex-row items-center md:items-center gap-6 text-slate-400 group text-center md:text-left bg-white/40 p-8 rounded-3xl border border-slate-50">
+                  <div className="flex-shrink-0">
                     <BrandLogo size="md" variant="wellbeing" />
                   </div>
-                  <p className="text-sm leading-relaxed italic max-w-md">
+                  <p className="text-sm leading-relaxed italic max-w-md font-medium text-slate-500">
                     "Dilengkapi dengan <strong>Wellbeing Guard</strong> untuk mendeteksi risiko burnout panitia lebih dini, karena komunitas hebat dimulai dari tim yang sehat."
                   </p>
                 </div>

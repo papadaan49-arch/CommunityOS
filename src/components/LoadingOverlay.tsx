@@ -25,8 +25,8 @@ export const LoadingOverlay: React.FC<Props> = ({ isVisible, message }) => {
             className="bg-white p-12 rounded-[3.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] text-center space-y-10 max-w-sm w-full border border-white/20"
           >
             <div className="relative mx-auto flex justify-center">
-              <div className="absolute inset-0 bg-teal-500/20 rounded-full scale-150 blur-2xl animate-pulse" />
-              <BrandLogo size="md" />
+              <div className="absolute inset-0 bg-teal-500/20 rounded-full scale-150 blur-3xl animate-pulse" />
+              <BrandLogo size="lg" />
             </div>
             
             <div className="space-y-4">

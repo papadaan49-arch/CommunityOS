@@ -74,7 +74,7 @@ export const FeedbackSection: React.FC = () => {
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-teal-600">
           <MessageSquare className="w-5 h-5" />
-          <h3 className="text-xl font-display font-semibold text-slate-800">Evaluasi Operational</h3>
+          <h3 className="text-xl font-display font-semibold text-slate-800">Evaluasi Operasional</h3>
         </div>
         <p className="text-base text-slate-500 font-medium leading-relaxed italic">"Apakah blueprint ini cukup realistis untuk dijalankan?"</p>
       </div>
@@ -117,17 +117,17 @@ export const FeedbackSection: React.FC = () => {
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <MetricPicker 
-                label="Usefulness" 
+                label="Manfaat" 
                 value={metrics.useful} 
                 onChange={(v) => setMetrics(prev => ({ ...prev, useful: v }))} 
               />
               <MetricPicker 
-                label="Clarity" 
+                label="Kejelasan" 
                 value={metrics.clarity} 
                 onChange={(v) => setMetrics(prev => ({ ...prev, clarity: v }))} 
               />
               <MetricPicker 
-                label="Realism" 
+                label="Realisme" 
                 value={metrics.realism} 
                 onChange={(v) => setMetrics(prev => ({ ...prev, realism: v }))} 
               />

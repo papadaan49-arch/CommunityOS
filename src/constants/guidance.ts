@@ -5,7 +5,7 @@ export const GUIDANCE_DATA = {
   },
   BURNOUT_RISK: {
     title: "Risiko Burnout",
-    description: "Perkiraan tekanan emosional dan fisik pada tim. Jika risiko terdeteksi tinggi, saatnya menyederhanakan rencana atau menambah dukungan rekan untuk menjaga kesehatan kolaborasi."
+    description: "Mendeteksi beban mental tim. Skor tinggi berarti tim butuh lebih banyak istirahat atau simplifikasi konsep agar tidak 'tumbang' sebelum acara dimulai."
   },
   BLUEPRINT_SCALE: {
     title: "Skala Kegiatan",
@@ -13,7 +13,7 @@ export const GUIDANCE_DATA = {
   },
   OPERATIONAL_COMPLEXITY: {
     title: "Kerumitan Operasional",
-    description: "Menilai seberapa detail koordinasi lapangan yang dibutuhkan. Membantu tim fokus pada prioritas tanpa terjebak dalam birokrasi internal yang berlebihan."
+    description: "Mengukur seberapa banyak detail teknis yang harus diurus. Kompleksitas tinggi meningkatkan beban kerja panitia secara signifikan; fokus ke hal esensial agar koordinasi lapangan tetap sehat dan manusiawi."
   },
   COORDINATION_INTENSITY: {
     title: "Intensitas Koordinasi",
@@ -22,5 +22,21 @@ export const GUIDANCE_DATA = {
   BUDGET_PRESSURE: {
     title: "Tekanan Anggaran",
     description: "Evaluasi fleksibilitas dana. Membantu pengambil keputusan untuk lebih taktis dalam alokasi biaya tanpa mengorbankan kualitas pengalaman peserta."
+  },
+  GERILYA_SCALE: {
+    title: "Gerilya Scale",
+    description: "Operasional tangkas dengan tim kecil dan budget minim. Fokus pada dampak maksimal dan kreativitas, bukan kerumitan acara."
+  },
+  QUICK_MODE: {
+    title: "Quick Mode",
+    description: "Pembuatan blueprint dasar secara instan untuk kebutuhan operasional standar, drafting cepat, dan ide dasar."
+  },
+  STRATEGIC_MODE: {
+    title: "Strategic Mode",
+    description: "Sintesis konseptual tingkat lanjut untuk kegiatan dengan konteks rumit, kepanitiaan besar, atau skala lintas wilayah."
+  },
+  EXPORT_WORKFLOWS: {
+    title: "Workflow Ekspor",
+    description: "Simpan draft operasional (.txt / .docx) yang ringan dan kompatibel agar lebih mudah dibagikan atau dilanjutkan di Google Docs."
   }
 };

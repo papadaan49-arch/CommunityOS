@@ -17,15 +17,6 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-            'vendor-utils': ['lucide-react', 'motion/react', 'sonner'],
-          }
-        }
-      }
     },
     resolve: {
       alias: {

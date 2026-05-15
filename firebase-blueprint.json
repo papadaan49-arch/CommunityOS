@@ -24,12 +24,84 @@
         "photoURL": { "type": "string" },
         "email": { "type": "string" }
       }
+    },
+    "CalendarEvent": {
+      "title": "CalendarEvent",
+      "description": "A Google Calendar event linked to a blueprint.",
+      "type": "object",
+      "properties": {
+        "googleEventId": { "type": "string", "description": "ID of the event in Google Calendar." },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "blueprintId": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "htmlLink": { "type": "string", "description": "Link to the event in Google Calendar." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["googleEventId", "title", "startTime", "endTime", "blueprintId", "creatorId", "createdAt"]
+    },
+    "AppSetting": {
+      "title": "AppSetting",
+      "description": "A global setting value.",
+      "type": "object",
+      "properties": {
+        "value": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["value", "updatedAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a blueprint left by a collaborator.",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "authorId", "authorName", "createdAt"]
+    },
+    "OrganizationProfile": {
+      "title": "OrganizationProfile",
+      "description": "Portfolio and performance metrics for a community or organization.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "totalEvents": { "type": "number" },
+        "totalParticipants": { "type": "number" },
+        "totalBudget": { "type": "number" },
+        "eventTypes": { "type": "object", "description": "Frequency map of event types." },
+        "locations": { "type": "array", "items": { "type": "string" } },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "creatorIds": { "type": "array", "items": { "type": "string" }, "description": "Users who have created blueprints for this org." }
+      },
+      "required": ["name", "totalEvents", "totalParticipants", "totalBudget", "lastActive"]
     }
   },
   "firestore": {
+    "/organizations/{orgId}": {
+      "schema": "OrganizationProfile",
+      "description": "Public portfolio of an organization."
+    },
+    "/settings/{settingId}": {
+      "schema": "AppSetting",
+      "description": "Global application settings."
+    },
     "/blueprints/{blueprintId}": {
       "schema": "BlueprintDoc",
       "description": "Collection of collaborative blueprints."
+    },
+    "/blueprints/{blueprintId}/calendar_events/{eventId}": {
+      "schema": "CalendarEvent",
+      "description": "Calendar events associated with a blueprint."
+    },
+    "/blueprints/{blueprintId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Comments left on a blueprint."
     },
     "/users/{userId}/public/profile": {
       "schema": "UserProfile",

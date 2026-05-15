@@ -11,9 +11,12 @@ interface Props {
 }
 
 export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
-  const isWarning = guard.risk_level === 'Amber' || guard.risk_level === 'Red';
+  if (!guard) return null;
+
+  const riskLevel = guard.risk_level || 'Green';
+  const isWarning = riskLevel === 'Amber' || riskLevel === 'Yellow' || riskLevel === 'Red';
   
-  const theme = {
+  const theme = ({
     Red: {
       bg: 'bg-rose-50',
       border: 'border-rose-100',
@@ -30,6 +33,14 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
       accent: 'bg-amber-500',
       glow: 'shadow-amber-100'
     },
+    Yellow: {
+      bg: 'bg-yellow-50',
+      border: 'border-yellow-100',
+      icon: 'text-yellow-500',
+      badge: 'bg-yellow-100 text-yellow-700',
+      accent: 'bg-yellow-500',
+      glow: 'shadow-yellow-100'
+    },
     Green: {
       bg: 'bg-emerald-50',
       border: 'border-emerald-100',
@@ -38,50 +49,60 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
       accent: 'bg-emerald-500',
       glow: 'shadow-emerald-100'
     }
-  }[guard.risk_level];
+  } as Record<string, any>)[riskLevel] || {
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-100',
+    icon: 'text-emerald-500',
+    badge: 'bg-emerald-100 text-emerald-700',
+    accent: 'bg-emerald-500',
+    glow: 'shadow-emerald-100'
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 1 }}
       className={`p-0.5 rounded-3xl bg-gradient-to-br transition-all duration-700 ${
-        guard.risk_level === 'Red' ? 'from-rose-100 to-rose-50' : 
-        guard.risk_level === 'Amber' ? 'from-amber-100 to-amber-50' : 
+        riskLevel === 'Red' ? 'from-rose-100 to-rose-50' : 
+        riskLevel === 'Amber' ? 'from-amber-100 to-amber-50' : 
+        riskLevel === 'Yellow' ? 'from-yellow-100 to-yellow-50' :
         'from-emerald-100 to-emerald-50'
       }`}
     >
-      <div className={`p-10 md:p-14 rounded-[calc(3rem-2px)] h-full ${theme.bg} border ${theme.border}`}>
-        <div className="flex items-center justify-between mb-12 md:mb-16">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <BrandLogo size="lg" variant="wellbeing" />
-            <div className="space-y-4 text-center md:text-left">
+      <div className={`p-7 md:p-14 rounded-[calc(2.5rem-2px)] md:rounded-[calc(3rem-2px)] h-full ${theme.bg} border ${theme.border}`}>
+        <div className="flex items-center justify-between mb-8 md:mb-16">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 w-full">
+            <BrandLogo size="md md:lg" variant="wellbeing" />
+            <div className="space-y-3 md:space-y-4 text-center md:text-left">
               <div className="space-y-1">
-                <h2 className="text-2xl font-display font-semibold text-slate-800">Wellbeing Guard</h2>
-                <HelpTooltip {...GUIDANCE_DATA.WELLBEING_GUARD} />
+                <h2 className="text-xl md:text-2xl font-display font-semibold text-slate-800 flex items-center justify-center md:justify-start gap-2 leading-tight">
+                  Wellbeing Guard
+                  <HelpTooltip {...GUIDANCE_DATA.WELLBEING_GUARD} />
+                </h2>
               </div>
               <div className="flex items-center justify-center md:justify-start gap-2">
-                <span className={`text-[10px] uppercase font-semibold px-3 py-1 rounded-full ${theme.badge}`}>
-                  Status Keamanan Tim: {guard.risk_level}
+                <span className={`text-[8px] md:text-[10px] uppercase font-semibold px-2.5 md:px-3 py-1 rounded-full ${theme.badge} whitespace-nowrap`}>
+                  Status Keamanan: {riskLevel}
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="relative mb-12 md:mb-16">
-          <p className="text-slate-600 text-lg md:text-xl leading-relaxed font-medium italic">
-            "{guard.burnout_analysis}"
+        <div className="relative mb-8 md:mb-16">
+          <p className="text-slate-600 text-base md:text-xl leading-relaxed md:leading-relaxed font-medium italic">
+            "{guard.burnout_analysis || 'Tidak ada analisis tersedia.'}"
           </p>
         </div>
 
         <div className="space-y-6 md:space-y-8">
           <div className="flex items-center gap-3">
-            <h3 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Wellbeing Action Kit</h3>
+            <h3 className="text-[9px] md:text-[10px] font-semibold text-slate-400 uppercase tracking-widest whitespace-nowrap">Wellbeing Action Kit</h3>
             <div className="h-px flex-1 bg-slate-100" />
           </div>
           
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {guard.action_items.map((item, index) => (
+            {(guard.action_items || []).map((item, index) => (
               <motion.div 
                 key={index}
                 initial={{ opacity: 0, y: 5 }}

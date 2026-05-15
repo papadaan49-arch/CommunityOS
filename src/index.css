@@ -33,22 +33,10 @@
 
 @layer utilities {
   .ios-spacing {
-    @apply space-y-16 md:space-y-24;
+    @apply space-y-12 md:space-y-24;
   }
   
   .content-padding {
-    @apply px-8 md:px-10;
-  }
-  
-  .pdf-export {
-    background-color: white !important;
-    padding: 40px !important;
-  }
-  
-  .pdf-export section,
-  .pdf-export > div {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    margin-bottom: 3rem !important;
+    @apply px-5 md:px-10;
   }
 }

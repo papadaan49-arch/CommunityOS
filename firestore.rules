@@ -52,6 +52,11 @@ service cloud.firestore {
       allow write: if isSignedIn() && request.auth.token.email == email;
     }
 
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
     match /blueprints/{blueprintId} {
       allow get: if isValidId(blueprintId) && (
         existing().ownerId == request.auth.uid || 
@@ -74,6 +79,64 @@ service cloud.firestore {
       );
 
       allow delete: if isValidId(blueprintId) && isOwner(existing().ownerId);
+
+      // --- Calendar Events ---
+      match /calendar_events/{eventId} {
+        function canAccessBlueprint() {
+          let blueprint = get(/databases/$(database)/documents/blueprints/$(blueprintId)).data;
+          return blueprint.ownerId == request.auth.uid || request.auth.uid in blueprint.get('collaborators', []) || blueprint.get('isPublic', false) == true;
+        }
+        
+        function isValidCalendarEvent(data) {
+          return data.keys().hasAll(['googleEventId', 'title', 'startTime', 'endTime', 'blueprintId', 'creatorId', 'createdAt'])
+            && data.googleEventId is string
+            && data.title is string && data.title.size() <= 200
+            && data.blueprintId == blueprintId
+            && data.creatorId == request.auth.uid
+            && data.createdAt == request.time;
+        }
+
+        allow read: if isSignedIn() && canAccessBlueprint();
+        allow create: if isValidId(eventId) && isSignedIn() && canAccessBlueprint() && isValidCalendarEvent(incoming());
+        allow update: if isValidId(eventId) && isSignedIn() && canAccessBlueprint() && (
+           incoming().creatorId == existing().creatorId && 
+           incoming().googleEventId == existing().googleEventId &&
+           incoming().createdAt == existing().createdAt &&
+           incoming().blueprintId == existing().blueprintId
+        );
+        allow delete: if isSignedIn() && (existing().creatorId == request.auth.uid || isOwner(get(/databases/$(database)/documents/blueprints/$(blueprintId)).data.ownerId));
+      }
+
+      // --- Comments ---
+      match /comments/{commentId} {
+        function isCollaborator() {
+          let blueprint = get(/databases/$(database)/documents/blueprints/$(blueprintId)).data;
+          return blueprint.ownerId == request.auth.uid || request.auth.uid in blueprint.get('collaborators', []);
+        }
+
+        function isValidComment(data) {
+          return data.keys().hasAll(['text', 'authorId', 'authorName', 'createdAt'])
+            && data.text is string && data.text.size() <= 1000
+            && data.authorId == request.auth.uid
+            && data.createdAt == request.time;
+        }
+
+        allow read: if isSignedIn() && isCollaborator();
+        allow create: if isValidId(commentId) && isSignedIn() && isCollaborator() && isValidComment(incoming());
+        allow delete: if isSignedIn() && (existing().authorId == request.auth.uid || isOwner(get(/databases/$(database)/documents/blueprints/$(blueprintId)).data.ownerId));
+      }
+    }
+
+    // --- Organizations ---
+    match /organizations/{orgId} {
+      function isValidOrg(data) {
+        return data.name is string && data.name.size() > 0 
+          && data.totalEvents is number 
+          && data.totalParticipants is number
+          && data.totalBudget is number;
+      }
+      allow read: if true;
+      allow create, update: if isSignedIn() && isValidId(orgId) && isValidOrg(incoming());
     }
   }
 }

@@ -39,7 +39,7 @@ export interface Blueprint {
     coordination_intensity: number; // 1-100
   };
   wellbeing_guard: {
-    risk_level: 'Green' | 'Amber' | 'Red';
+    risk_level: 'Green' | 'Yellow' | 'Amber' | 'Red';
     burnout_analysis: string;
     fatigue_analysis: string;
     action_items: string[];
@@ -52,4 +52,17 @@ export interface Blueprint {
     local_partners: string[];
     ig_caption: string;
   };
+}
+
+export interface CalendarEvent {
+  id?: string;
+  googleEventId: string;
+  title: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  blueprintId: string;
+  creatorId: string;
+  htmlLink?: string;
+  createdAt: string;
 }

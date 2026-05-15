@@ -1,13 +1,19 @@
 import React from 'react';
 import { EventData } from '../types';
+import { HelpTooltip } from './HelpTooltip';
+import { GUIDANCE_DATA } from '../constants/guidance';
 
 interface Props {
-  onSubmit: (data: EventData) => void;
+  onSubmit: (data: EventData & { mode?: 'quick' | 'strategic' }) => void;
   loading: boolean;
   prefill?: EventData | null;
+  isLoggedIn?: boolean;
+  userEmail?: string | null;
+  onLoginRequest?: () => void;
 }
 
-export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
+export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLoggedIn, userEmail, onLoginRequest }) => {
+  const [mode, setMode] = React.useState<'quick' | 'strategic'>('quick');
   const [formValues, setFormValues] = React.useState({
     name: '',
     organization: '',
@@ -61,7 +67,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
 
   React.useEffect(() => {
     if (prevLoading.current === true && loading === false) {
-      setCooldown(45);
+      setCooldown(20);
     }
     prevLoading.current = loading;
   }, [loading]);
@@ -75,7 +81,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (cooldown > 0 || loading || !isValid) return;
+    if (loading || cooldown > 0 || !isValid) return;
 
     onSubmit({
       name: formValues.name,
@@ -87,6 +93,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
       type: formValues.type,
       goal: formValues.goal,
       previous_context: formValues.previous_context,
+      mode: mode,
     });
   };
 
@@ -106,23 +113,23 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
   return (
     <form 
       onSubmit={handleSubmit} 
-      className="bg-white p-8 md:p-14 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 space-y-10 md:space-y-12 relative overflow-hidden"
+      className="bg-white p-6 md:p-14 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 space-y-8 md:space-y-12 relative overflow-hidden"
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-50" />
       
-      <div className="relative border-b border-slate-100 pb-8">
-        <h2 className="text-xl md:text-2xl font-display font-bold text-slate-800 mb-2 md:mb-3">Konfigurasi Acara</h2>
-        <p className="text-xs md:text-sm text-slate-500 mb-4 italic leading-relaxed">"Lengkapi detail untuk hasil yang lebih akurat dan personal."</p>
+      <div className="relative border-b border-slate-100 pb-6 md:pb-8">
+        <h2 className="text-lg md:text-2xl font-display font-black text-slate-800 mb-1">Rancang Kegiatan</h2>
+        <p className="text-[10px] md:text-sm text-slate-500 italic">"Lengkapi detail untuk blueprint yang personal."</p>
       </div>
-      
-      <div className="space-y-8 md:space-y-10 relative">
+
+      <div className="space-y-6 md:space-y-10 relative">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
             <label className={labelClass}>Nama Kegiatan</label>
             <input
               type="text"
               className={inputClass('name')}
-              placeholder="Contoh: EduAction IELTS Sharing Session"
+              placeholder="Contoh: EduAction Sharing Session"
               value={formValues.name}
               onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
               onBlur={() => handleBlur('name')}
@@ -265,9 +272,122 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill }) => {
       </div>
 
       <div className="pt-2 relative">
+        {/* Live Operational Insight Component */}
+        <div className="mb-6 p-5 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Operational Insight</span>
+          </div>
+
+          {(() => {
+            const staff = parseInt(formValues.staff) || 0;
+            const participants = parseInt(formValues.participants) || 0;
+            const budget = parseInt(formValues.budget) || 0;
+
+            if (staff === 0 && participants === 0) {
+              return <p className="text-xs text-slate-400 italic">"Lengkapi jumlah panitia dan peserta untuk melihat estimasi beban kerja."</p>;
+            }
+
+            const ratio = participants / (staff || 1);
+            let riskMsg = "";
+            let riskLevel = "Normal";
+
+            if (ratio > 25) {
+              riskLevel = "Tinggi";
+              riskMsg = "Rasio peserta per panitia sangat tinggi. Risiko burnout operasional terdeteksi.";
+            } else if (ratio > 15) {
+              riskLevel = "Sedang";
+              riskMsg = "Beban kerja tim cukup intensif. Pastikan pembagian delegasi jelas.";
+            } else if (staff > 0) {
+              riskLevel = "Aman";
+              riskMsg = "Kapasitas tim terlihat ideal untuk jumlah peserta ini.";
+            }
+
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Estimasi Intensitas</span>
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                    riskLevel === 'Tinggi' ? 'bg-rose-100 text-rose-600' : 
+                    riskLevel === 'Sedang' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+                  }`}>
+                    {riskLevel}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                  "{riskMsg}"
+                </p>
+                {budget > 0 && budget < 200000 && participants > 30 && (
+                  <div className="flex items-start gap-2 p-2.5 bg-white border border-slate-100 rounded-xl mt-2">
+                    <span className="text-xs">💡</span>
+                    <p className="text-[10px] text-slate-500 leading-tight">
+                      Budget terbatas untuk peserta sebanyak ini. CommunityOS akan prioritaskan strategi <span className="font-bold text-teal-600">Gerilya Scale</span>.
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+
+        <div className="flex items-center gap-2 mb-6 p-1.5 bg-slate-50 rounded-2xl w-full md:w-fit mx-auto border border-slate-100">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setMode('quick')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setMode('quick'); }}
+            className={`flex-1 md:flex-none cursor-pointer flex flex-col items-center gap-1.5 px-3 md:px-6 py-3 rounded-2xl transition-all border ${
+              mode === 'quick' 
+                ? 'bg-white shadow-xl shadow-teal-900/5 text-teal-600 border-teal-100 scale-[1.02] md:scale-105' 
+                : 'text-slate-400 hover:text-slate-500 border-transparent hover:bg-white/50'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest whitespace-nowrap">Quick Mode</span>
+              <HelpTooltip {...GUIDANCE_DATA.QUICK_MODE} />
+            </div>
+            <span className="text-[7px] md:text-[8px] font-medium opacity-60">Taktis & Cepat</span>
+          </div>
+          <div className="w-px h-6 md:h-8 bg-slate-200/50" />
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              if (!isLoggedIn && onLoginRequest) {
+                onLoginRequest();
+              } else {
+                setMode('strategic');
+              }
+            }}
+            onKeyDown={(e) => { 
+              if (e.key === 'Enter' || e.key === ' ') {
+                if (!isLoggedIn && onLoginRequest) {
+                  onLoginRequest();
+                } else {
+                  setMode('strategic');
+                }
+              }
+            }}
+            className={`flex-1 md:flex-none cursor-pointer flex flex-col items-center gap-1.5 px-3 md:px-6 py-3 rounded-2xl transition-all border ${
+              mode === 'strategic' 
+                ? 'bg-white shadow-xl shadow-teal-900/5 text-teal-600 border-teal-100 scale-[1.02] md:scale-105' 
+                : 'text-slate-400 hover:text-slate-500 border-transparent hover:bg-white/50'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="flex flex-col items-center">
+                <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest leading-none whitespace-nowrap">Strategic Mode</span>
+                {!isLoggedIn && <span className="text-[6px] md:text-[7px] text-amber-500 font-bold mt-0.5">LOCKED</span>}
+              </div>
+              <HelpTooltip {...GUIDANCE_DATA.STRATEGIC_MODE} />
+            </div>
+            <span className="text-[7px] md:text-[8px] font-medium opacity-60">Analisis Mendalam</span>
+          </div>
+        </div>
+
         <button
           type="submit"
-          disabled={loading || cooldown > 0 || Object.keys(touched).length > 0 && !isValid}
+          disabled={loading || cooldown > 0 || (Object.keys(touched).length > 0 && !isValid)}
           className="w-full relative group disabled:cursor-not-allowed"
         >
           <div className="absolute -inset-1 bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>

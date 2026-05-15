@@ -32,18 +32,18 @@ export const CommunityGuidelines: React.FC = () => {
   ];
 
   return (
-    <section className="py-12 px-4 border-t border-slate-100">
+    <section className="py-10 md:py-12 px-2 md:px-4 border-t border-slate-100">
       <div className="max-w-4xl mx-auto space-y-10">
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-widest">
+          <div className="inline-flex items-center gap-2 px-2.5 md:px-3 py-1 md:py-1.5 bg-slate-100 text-slate-600 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest leading-none">
             <BrandLogo size="xs" variant="wellbeing" />
-            CommunityOS Philosophy
+            Filosofi CommunityOS
           </div>
-          <h2 className="text-2xl md:text-3xl font-display font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-xl md:text-3xl font-display font-extrabold text-slate-900 tracking-tight px-4">
             Prinsip Perjuangan Komunitas
           </h2>
-          <p className="text-slate-500 text-sm md:text-base max-w-xl mx-auto">
-            Panduan praktis untuk menjaga keberlanjutan energi tim dan kesuksesan kegiatan grassroot di Indonesia.
+          <p className="text-slate-500 text-xs md:text-base max-w-xl mx-auto px-6">
+            Panduan praktis menjaga energi tim dan keberlanjutan gerakan komunitas.
           </p>
         </div>
 
@@ -70,12 +70,12 @@ export const CommunityGuidelines: React.FC = () => {
           ))}
         </div>
 
-        <div className="bg-slate-900 rounded-[2.5rem] p-8 md:p-12 text-center relative overflow-hidden group">
+        <div className="bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] p-7 md:p-12 text-center relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-teal-500/20 transition-colors" />
-          <div className="relative z-10 space-y-6">
-            <h3 className="text-xl md:text-2xl font-display font-extrabold text-white">Ingatlah: Tim Sehat, Acara Hebat.</h3>
-            <p className="text-slate-400 text-sm md:text-base max-w-2xl mx-auto leading-relaxed italic">
-              "Tujuan utama kita adalah berdampak, namun dampak tersebut tidak akan maksimal jika penggeraknya tumbang satu per satu karena kelelahan."
+          <div className="relative z-10 space-y-4 md:space-y-6">
+            <h3 className="text-lg md:text-2xl font-display font-extrabold text-white">Tim Sehat, Acara Hebat.</h3>
+            <p className="text-slate-400 text-[13px] md:text-base max-w-2xl mx-auto leading-relaxed italic">
+              "Tujuan utama kita adalah berdampak, namun dampak tersebut tidak akan maksimal jika penggeraknya tumbang karena kelelahan."
             </p>
           </div>
         </div>

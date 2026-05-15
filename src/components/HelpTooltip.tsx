@@ -13,7 +13,11 @@ export const HelpTooltip: React.FC<Props> = ({ title, description }) => {
   return (
     <div className="relative inline-flex items-center">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
         className="p-1 text-slate-300 hover:text-teal-500 transition-colors focus:outline-none"
         aria-label={`Informasi tentang ${title}`}
       >

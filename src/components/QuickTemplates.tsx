@@ -107,8 +107,8 @@ export const QuickTemplates: React.FC<Props> = ({ onSelect, disabled }) => {
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-2 mb-2 px-1">
-        <Sparkles className="w-4 h-4 text-teal-500" />
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Quick Demo Templates</h3>
+        <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-teal-500" />
+        <h3 className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">Template Demo Cepat</h3>
       </div>
       
       <div className="flex flex-wrap gap-2">
@@ -119,17 +119,19 @@ export const QuickTemplates: React.FC<Props> = ({ onSelect, disabled }) => {
             whileTap={{ scale: 0.95 }}
             onClick={() => onSelect(template.data)}
             disabled={disabled}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-100 rounded-2xl text-xs font-semibold text-slate-600 shadow-sm hover:shadow-md hover:border-teal-100 hover:text-teal-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+            className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-white border border-slate-100 rounded-xl md:rounded-2xl text-[11px] md:text-xs font-semibold text-slate-600 shadow-sm hover:shadow-md hover:border-teal-100 hover:text-teal-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed group whitespace-nowrap"
           >
-            <span className="p-1.5 bg-slate-50 rounded-lg group-hover:bg-teal-50 transition-colors">
-              {template.icon}
+            <span className="p-1 md:p-1.5 bg-slate-50 rounded-lg group-hover:bg-teal-50 transition-colors">
+              <span className="w-3.5 h-3.5 md:w-4 md:h-4 flex items-center justify-center">
+                {template.icon}
+              </span>
             </span>
             {template.label}
           </motion.button>
         ))}
       </div>
       
-      <p className="text-[10px] text-slate-400 font-medium italic px-1">
+      <p className="text-[9px] md:text-[10px] text-slate-400 font-medium italic px-1">
         *Klik salah satu template untuk mengisi form secara otomatis.
       </p>
     </section>

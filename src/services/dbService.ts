@@ -25,6 +25,70 @@ export interface BlueprintDocument {
   updatedAt: any;
 }
 
+export interface BlueprintComment {
+  id: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  authorPhoto?: string;
+  createdAt: any;
+}
+
+export interface OrganizationProfile {
+  id: string;
+  name: string;
+  totalEvents: number;
+  totalParticipants: number;
+  totalBudget: number;
+  eventTypes: Record<string, number>;
+  locations: string[];
+  lastActive: any;
+  creatorIds: string[];
+}
+
+export const trackOrganizationGrowth = async (orgName: string, data: EventData) => {
+  if (!orgName) return;
+  
+  const orgId = orgName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const orgRef = doc(db, 'organizations', orgId);
+
+  try {
+    const orgSnap = await getDoc(orgRef);
+    const userId = auth.currentUser?.uid;
+
+    if (orgSnap.exists()) {
+      const current = orgSnap.data();
+      const updatedTypes = { ...current.eventTypes };
+      updatedTypes[data.type] = (updatedTypes[data.type] || 0) + 1;
+
+      await updateDoc(orgRef, {
+        totalEvents: current.totalEvents + 1,
+        totalParticipants: current.totalParticipants + data.participants,
+        totalBudget: current.totalBudget + data.budget,
+        eventTypes: updatedTypes,
+        locations: arrayUnion(data.location),
+        creatorIds: arrayUnion(userId),
+        lastActive: serverTimestamp()
+      });
+    } else {
+      await import('firebase/firestore').then(async ({ setDoc }) => {
+        await setDoc(orgRef, {
+          name: orgName,
+          totalEvents: 1,
+          totalParticipants: data.participants,
+          totalBudget: data.budget,
+          eventTypes: { [data.type]: 1 },
+          locations: [data.location],
+          creatorIds: userId ? [userId] : [],
+          lastActive: serverTimestamp()
+        });
+      });
+    }
+  } catch (error) {
+    console.error("Failed to track organization growth:", error);
+  }
+};
+
 export const saveBlueprintToCloud = async (data: Blueprint, originalData: EventData) => {
   if (!auth.currentUser) return null;
 
@@ -38,6 +102,10 @@ export const saveBlueprintToCloud = async (data: Blueprint, originalData: EventD
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+
+    // Track growth
+    await trackOrganizationGrowth(originalData.organization, originalData);
+
     return docRef.id;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, 'blueprints');
@@ -137,5 +205,75 @@ export const togglePublicAccess = async (blueprintId: string, isPublic: boolean)
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `blueprints/${blueprintId}`);
+  }
+};
+
+export const getAppSetting = async (key: string): Promise<any> => {
+  try {
+    const docRef = doc(db, 'settings', key);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data().value;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+};
+
+export const updateAppSetting = async (key: string, value: any) => {
+  try {
+    const docRef = doc(db, 'settings', key);
+    const { setDoc } = await import('firebase/firestore');
+    await setDoc(docRef, {
+      value,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `settings/${key}`);
+  }
+};
+
+export const getOrgProfiles = async (): Promise<OrganizationProfile[]> => {
+  if (!auth.currentUser) return [];
+  try {
+    const q = query(collection(db, 'organizations'), where('creatorIds', 'array-contains', auth.currentUser.uid));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as OrganizationProfile));
+  } catch (error) {
+    console.error("Failed to fetch org profiles:", error);
+    return [];
+  }
+};
+
+export const getUserStats = async (): Promise<{ totalBlueprints: number, totalParticipants: number }> => {
+  if (!auth.currentUser) return { totalBlueprints: 0, totalParticipants: 0 };
+  try {
+    const q = query(collection(db, 'blueprints'), where('ownerId', '==', auth.currentUser.uid));
+    const snap = await getDocs(q);
+    let totalParticipants = 0;
+    snap.forEach(doc => {
+      totalParticipants += (doc.data().originalData?.participants || 0);
+    });
+    return { totalBlueprints: snap.size, totalParticipants };
+  } catch (error) {
+    return { totalBlueprints: 0, totalParticipants: 0 };
+  }
+};
+
+export const postComment = async (blueprintId: string, text: string) => {
+  if (!auth.currentUser) throw new Error("Anda harus masuk untuk memberi komentar.");
+
+  try {
+    const commentsRef = collection(db, 'blueprints', blueprintId, 'comments');
+    await addDoc(commentsRef, {
+      text,
+      authorId: auth.currentUser.uid,
+      authorName: auth.currentUser.displayName || auth.currentUser.email || 'Relawan',
+      authorPhoto: auth.currentUser.photoURL || '',
+      createdAt: serverTimestamp()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, `blueprints/${blueprintId}/comments`);
   }
 };

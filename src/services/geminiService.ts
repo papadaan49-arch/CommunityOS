@@ -45,7 +45,7 @@ export async function validateInputWithAI(data: EventData): Promise<{ isValid: b
       If invalid, use this message: "Input kegiatan masih terlalu singkat untuk dianalisis secara realistis. Tambahkan detail agar CommunityOS bisa memberikan blueprint yang lebih akurat dan manusiawi."
     `;
 
-    const result = await callGeminiProxy("gemini-3-flash-preview", prompt, {
+    const result = await callGeminiProxy("gemini-3.1-pro-preview", prompt, {
       responseMimeType: "application/json",
     });
 
@@ -97,7 +97,7 @@ export async function generateBlueprint(data: EventData): Promise<Blueprint> {
     `;
 
     // For simplicity, keeping the structured prompt and using responseMimeType.
-    const result = await callGeminiProxy("gemini-3-flash-preview", prompt, {
+    const result = await callGeminiProxy("gemini-3.1-pro-preview", prompt, {
       responseMimeType: "application/json",
     });
 
@@ -146,7 +146,7 @@ export async function refineBlueprint(currentBlueprint: Blueprint, instructions:
       Output: Strictly follow the original blueprint JSON format.
     `;
 
-    const result = await callGeminiProxy("gemini-3-flash-preview", prompt, {
+    const result = await callGeminiProxy("gemini-3.1-pro-preview", prompt, {
       responseMimeType: "application/json",
     });
 

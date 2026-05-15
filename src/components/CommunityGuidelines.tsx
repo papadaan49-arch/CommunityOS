@@ -1,6 +1,7 @@
 import React from 'react';
-import { Heart, Coffee, Users, Zap, ShieldCheck } from 'lucide-react';
+import { Heart, Coffee, Users, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
+import { BrandLogo } from './BrandLogo';
 
 export const CommunityGuidelines: React.FC = () => {
   const guidelines = [
@@ -34,8 +35,8 @@ export const CommunityGuidelines: React.FC = () => {
     <section className="py-12 px-4 border-t border-slate-100">
       <div className="max-w-4xl mx-auto space-y-10">
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-widest">
-            <ShieldCheck className="w-3 h-3" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-widest">
+            <BrandLogo size="xs" variant="wellbeing" />
             CommunityOS Philosophy
           </div>
           <h2 className="text-2xl md:text-3xl font-display font-extrabold text-slate-900 tracking-tight">

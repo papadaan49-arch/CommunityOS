@@ -10,7 +10,6 @@ export const db = initializeFirestore(app, {
 }, firebaseConfig.firestoreDatabaseId);
 
 const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 
 export const loginWithGoogle = async () => {
   try {
@@ -24,18 +23,18 @@ export const loginWithGoogle = async () => {
 
 export const logout = () => signOut(auth);
 
-// Critical connection test
 export async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    // Check connection but don't block app lifecycle
+    const docRef = doc(db, 'test', 'connection');
+    await getDocFromServer(docRef);
+    console.log("Firestore connection verified.");
   } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+    if(error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('timeout'))) {
+      console.warn("Firestore connection slow or offline. CommunityOS will retry automatically.");
     }
   }
 }
-
-testConnection();
 
 export enum OperationType {
   CREATE = 'create',

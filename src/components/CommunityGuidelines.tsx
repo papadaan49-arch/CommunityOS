@@ -1,33 +1,33 @@
 import React from 'react';
-import { Heart, Coffee, Users, Zap } from 'lucide-react';
+import { HeartHandshake, Coffee, Sparkles, Target } from 'lucide-react';
 import { motion } from 'motion/react';
 import { BrandLogo } from './BrandLogo';
 
 export const CommunityGuidelines: React.FC = () => {
   const guidelines = [
     {
-      icon: <Heart className="w-5 h-5 text-rose-500" />,
-      title: "Proritaskan Manusia",
-      description: "Relawan adalah manusia, bukan mesin. Pastikan beban kerja realistis dengan jadwal kuliah atau kerja mereka.",
-      color: "bg-rose-50 border-rose-100"
+      icon: <HeartHandshake className="w-5 h-5 text-rose-500" />,
+      title: "Prioritaskan Manusia",
+      description: "Relawan adalah manusia, bukan mesin. Pastikan beban kerja luar biasa realistis, menghargai waktu istirahat, serta jadwal kuliah atau kerja mereka.",
+      color: "from-rose-50/50 to-white hover:border-rose-200 border-rose-100/75 bg-gradient-to-br"
     },
     {
       icon: <Coffee className="w-5 h-5 text-amber-500" />,
       title: "Minimalisir Rapat",
-      description: "Gunakan WhatsApp koordinasi yang efektif. Tidak semua hal harus diselesaikan lewat rapat offline yang melelahkan.",
-      color: "bg-amber-50 border-amber-100"
+      description: "Lebih banyak ngopi santai dan komunikasi asinkron lewat WhatsApp yang taktis. Hindari rapat offline formal berhari-hari yang menguras energi.",
+      color: "from-amber-50/50 to-white hover:border-amber-200 border-amber-100/75 bg-gradient-to-br"
     },
     {
-      icon: <Users className="w-5 h-5 text-blue-500" />,
+      icon: <Sparkles className="w-5 h-5 text-teal-600" />,
       title: "Budaya Apresiasi",
-      description: "Terima kasih sekecil apa pun sangat berarti. Rayakan progres kecil bersama tim untuk menjaga semangat.",
-      color: "bg-blue-50 border-blue-100"
+      description: "Terima kasih dan apresiasi sekecil apa pun sangat berharga. Rayakan setiap langkah maju bersama seluruh jajaran tim relawan.",
+      color: "from-teal-50/50 to-white hover:border-teal-200 border-teal-100/75 bg-gradient-to-br"
     },
     {
-      icon: <Zap className="w-5 h-5 text-teal-500" />,
+      icon: <Target className="w-5 h-5 text-blue-500" />,
       title: "Fokus Dampak, Bukan Gengsi",
-      description: "Acara tidak harus mewah untuk berdampak. Jika budget mepet, fokuslah pada pengalaman peserta dan kenyamanan tim.",
-      color: "bg-teal-50 border-teal-100"
+      description: "Acara tidak harus megah untuk bermakna. Jika anggaran ketat, prioritaskan kualitas pengalaman peserta dan kesejahteraan panitia pelaksana.",
+      color: "from-blue-50/50 to-white hover:border-blue-200 border-blue-100/75 bg-gradient-to-br"
     }
   ];
 
@@ -36,7 +36,7 @@ export const CommunityGuidelines: React.FC = () => {
       <div className="max-w-4xl mx-auto space-y-10">
         <div className="text-center space-y-3">
           <div className="inline-flex items-center gap-2 px-2.5 md:px-3 py-1 md:py-1.5 bg-slate-100 text-slate-600 rounded-full text-[9px] md:text-[10px] font-bold uppercase tracking-widest leading-none">
-            <BrandLogo size="xs" variant="wellbeing" />
+            <BrandLogo size="xs" variant="brand" />
             Filosofi CommunityOS
           </div>
           <h2 className="text-xl md:text-3xl font-display font-extrabold text-slate-900 tracking-tight px-4">

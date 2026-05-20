@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Heart, Coffee, Upload, Camera, Check, ExternalLink } from 'lucide-react';
 import { getAppSetting, updateAppSetting } from '../services/dbService';
 import { toast } from 'sonner';
-import { ImageCropper } from './ImageCropper';
+import { ADMIN_EMAILS } from '../constants/admins';
 
 interface Props {
   isOpen: boolean;
@@ -15,9 +15,7 @@ export const DonationModal: React.FC<Props> = ({ isOpen, onClose, userEmail }) =
   const [qrisImage, setQrisImage] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [uploading, setUploading] = React.useState(false);
-  const [isCropping, setIsCropping] = React.useState(false);
-  const [tempImage, setTempImage] = React.useState<string | null>(null);
-  const isAdmin = !!userEmail;
+  const isAdmin = !!userEmail && ADMIN_EMAILS.includes(userEmail);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -43,34 +41,27 @@ export const DonationModal: React.FC<Props> = ({ isOpen, onClose, userEmail }) =
       return;
     }
 
+    setUploading(true);
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setTempImage(reader.result as string);
-      setIsCropping(true);
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      try {
+        await updateAppSetting('donation_qris', base64);
+        setQrisImage(base64);
+        toast.success("QRIS diperbarui! Terima kasih atas dukungannya.");
+      } catch (err) {
+        toast.error("Gagal menyimpan QRIS.");
+      } finally {
+        setUploading(false);
+      }
     };
     reader.readAsDataURL(file);
     // Reset input
     e.target.value = '';
   };
 
-  const handleCropComplete = async (croppedImage: string) => {
-    setUploading(true);
-    setIsCropping(false);
-    try {
-      await updateAppSetting('donation_qris', croppedImage);
-      setQrisImage(croppedImage);
-      toast.success("QRIS berhasil diperbarui! Terima kasih atas dukungannya.");
-    } catch (err) {
-      toast.error("Gagal menyimpan QRIS.");
-    } finally {
-      setUploading(false);
-      setTempImage(null);
-    }
-  };
-
   return (
-    <>
-      <AnimatePresence>
+    <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div
@@ -164,18 +155,5 @@ export const DonationModal: React.FC<Props> = ({ isOpen, onClose, userEmail }) =
         </div>
       )}
     </AnimatePresence>
-      {tempImage && (
-        <ImageCropper
-          image={tempImage}
-          isOpen={isCropping}
-          onCropComplete={handleCropComplete}
-          onCancel={() => {
-            setIsCropping(false);
-            setTempImage(null);
-          }}
-          aspectRatio={1} // QRIS is usually square or near square, let's keep it 1 for consistency or maybe 3/4? 1 is safer for QR codes.
-        />
-      )}
-    </>
   );
 };

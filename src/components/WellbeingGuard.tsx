@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Heart, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { HeartHandshake, Heart, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Blueprint } from '../types';
 import { BrandLogo } from './BrandLogo';
@@ -60,78 +60,101 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 1 }}
-      className={`p-0.5 rounded-3xl bg-gradient-to-br transition-all duration-700 ${
-        riskLevel === 'Red' ? 'from-rose-100 to-rose-50' : 
-        riskLevel === 'Amber' ? 'from-amber-100 to-amber-50' : 
-        riskLevel === 'Yellow' ? 'from-yellow-100 to-yellow-50' :
-        'from-emerald-100 to-emerald-50'
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={`p-1 rounded-[2.5rem] md:rounded-[4rem] bg-gradient-to-br transition-all duration-700 shadow-2xl ${
+        riskLevel === 'Red' ? 'from-rose-500/20 via-rose-50 to-rose-100/20 shadow-rose-200/50' : 
+        riskLevel === 'Amber' ? 'from-amber-500/20 via-amber-50 to-amber-100/20 shadow-amber-200/50' : 
+        riskLevel === 'Yellow' ? 'from-yellow-500/20 via-yellow-50 to-yellow-100/20 shadow-yellow-200/50' :
+        'from-emerald-500/20 via-emerald-50 to-emerald-100/20 shadow-emerald-200/50'
       }`}
     >
-      <div className={`p-7 md:p-14 rounded-[calc(2.5rem-2px)] md:rounded-[calc(3rem-2px)] h-full ${theme.bg} border ${theme.border}`}>
-        <div className="flex items-center justify-between mb-8 md:mb-16">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 w-full">
-            <BrandLogo size="md md:lg" variant="wellbeing" />
-            <div className="space-y-3 md:space-y-4 text-center md:text-left">
-              <div className="space-y-1">
-                <h2 className="text-xl md:text-2xl font-display font-semibold text-slate-800 flex items-center justify-center md:justify-start gap-2 leading-tight">
-                  Wellbeing Guard
-                  <HelpTooltip {...GUIDANCE_DATA.WELLBEING_GUARD} />
-                </h2>
+      <div className={`p-8 md:p-16 rounded-[calc(2.5rem-4px)] md:rounded-[calc(4rem-4px)] h-full ${theme.bg} border border-white relative overflow-hidden backdrop-blur-sm`}>
+        {/* Abstract Background Element */}
+        <div className={`absolute top-0 right-0 w-64 h-64 blur-[100px] -mr-32 -mt-32 opacity-20 ${theme.accent}`} />
+        
+        <div className="relative z-10 flex flex-col gap-10 md:gap-16">
+          <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6 md:gap-8">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-5 md:gap-8">
+              <div className={`w-16 h-16 md:w-20 md:h-20 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center shadow-lg transition-transform hover:scale-110 duration-500 ${theme.bg} border border-white/50`}>
+                <HeartHandshake className={`w-10 h-10 md:w-12 md:h-12 ${theme.icon}`} />
               </div>
-              <div className="flex items-center justify-center md:justify-start gap-2">
-                <span className={`text-[8px] md:text-[10px] uppercase font-semibold px-2.5 md:px-3 py-1 rounded-full ${theme.badge} whitespace-nowrap`}>
-                  Status Keamanan: {riskLevel}
-                </span>
+              <div className="text-center md:text-left space-y-2">
+                <h2 className="text-2xl md:text-4xl font-display font-black text-slate-900 tracking-tight leading-none">
+                  Wellbeing Guard
+                </h2>
+                <div className="flex items-center justify-center md:justify-start gap-2">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${theme.accent}`} />
+                  <span className={`text-[10px] md:text-xs font-black uppercase tracking-[0.2em] ${theme.icon}`}>
+                    Status: {riskLevel}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className={`px-6 py-3 rounded-2xl border-2 flex items-center gap-3 backdrop-blur-md ${theme.badge} border-white/20 shadow-sm`}>
+              <Heart className="w-5 h-5 fill-current" />
+              <span className="text-xs md:text-sm font-black uppercase tracking-widest whitespace-nowrap">
+                Aksi Berkelanjutan
+              </span>
+            </div>
+          </div>
+
+          {/* Analysis Quote */}
+          <div className="relative">
+            <div className={`absolute -left-4 top-0 w-1 h-full rounded-full opacity-30 ${theme.accent}`} />
+            <p className="text-lg md:text-3xl text-slate-800 leading-relaxed md:leading-[1.5] font-display font-medium italic pl-6">
+              "{guard.burnout_analysis || 'Keamanan tim terjaga dengan baik sesuai blueprint.'}"
+            </p>
+          </div>
+
+          {/* Action Kit Grid */}
+          <div className="space-y-8 md:space-y-10">
+            <div className="flex items-center gap-4">
+              <h3 className="text-[11px] md:text-xs font-black text-slate-400 uppercase tracking-[0.3em] whitespace-nowrap">Wellbeing Action Kit</h3>
+              <div className="h-px flex-1 bg-slate-200/50" />
+            </div>
+            
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {(guard.action_items || []).map((item, index) => (
+                <motion.div 
+                  key={index}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  className="bg-white/80 p-6 rounded-3xl border border-white shadow-sm shadow-slate-100 flex flex-col gap-4 group transition-all hover:shadow-xl hover:shadow-teal-900/5 hover:border-teal-100"
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors group-hover:scale-110 ${theme.bg}`}>
+                    <CheckCircle2 className={`w-5 h-5 ${theme.icon}`} />
+                  </div>
+                  <span className="text-sm md:text-base font-bold text-slate-800 leading-snug">{item}</span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Burnout Prevention Bar */}
+          <div className="bg-white/40 p-6 md:p-10 rounded-[2.5rem] border border-white border-dashed shadow-inner">
+            <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+              <div className="flex flex-col items-center gap-1">
+                 <AlertCircle className={`w-8 h-8 md:w-10 md:h-10 ${theme.icon}`} />
+                 <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest text-center">Safety Check</span>
+              </div>
+              <div className="flex-1 space-y-3">
+                <p className="text-sm md:text-lg text-slate-600 font-medium leading-relaxed italic text-center md:text-left">
+                  "Blueprint ini dirancang untuk dampak jangka panjang. {isWarning ? 'Segera delegasikan tugas jika beban mulai terasa berat.' : 'Lanjutkan ritme positif ini bersama tim Anda.'}"
+                </p>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <BrandLogo size="xs" variant="wellbeing" />
+                    Verified wellbeing protocol
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <div className="relative mb-8 md:mb-16">
-          <p className="text-slate-600 text-base md:text-xl leading-relaxed md:leading-relaxed font-medium italic">
-            "{guard.burnout_analysis || 'Tidak ada analisis tersedia.'}"
-          </p>
-        </div>
-
-        <div className="space-y-6 md:space-y-8">
-          <div className="flex items-center gap-3">
-            <h3 className="text-[9px] md:text-[10px] font-semibold text-slate-400 uppercase tracking-widest whitespace-nowrap">Wellbeing Action Kit</h3>
-            <div className="h-px flex-1 bg-slate-100" />
-          </div>
-          
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {(guard.action_items || []).map((item, index) => (
-              <motion.div 
-                key={index}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="flex items-center gap-4 bg-white/80 p-5 rounded-2xl border border-white shadow-sm hover:border-teal-100 transition-all group"
-              >
-                <div className={`p-2 rounded-xl ${theme.bg} group-hover:scale-105 transition-transform flex-shrink-0`}>
-                  <Heart className={`w-4 h-4 ${theme.icon}`} />
-                </div>
-                <span className="text-sm font-semibold text-slate-700 leading-snug">{item}</span>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-        
-        {isWarning && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="mt-10 flex items-start gap-4 p-5 bg-white/50 rounded-[2rem] border border-dashed border-slate-200 shadow-inner"
-          >
-            <AlertCircle className="w-6 h-6 text-slate-300 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-slate-500 font-medium leading-relaxed italic">
-              "Ingat, tujuan kita adalah menciptakan dampak yang berkelanjutan. Jaga kesehatan tim di atas segalanya."
-            </p>
-          </motion.div>
-        )}
       </div>
     </motion.div>
   );

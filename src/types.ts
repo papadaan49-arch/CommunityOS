@@ -8,6 +8,8 @@ export interface EventData {
   type: string;
   goal: string;
   previous_context?: string;
+  mode?: 'quick' | 'strategic';
+  spirit?: string;
 }
 
 export interface OperationalMetadata {

@@ -1,9 +1,10 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Instagram, Linkedin, Heart, ShieldCheck, Upload, Camera } from 'lucide-react';
+import { Instagram, Linkedin, Heart, ShieldCheck, Camera } from 'lucide-react';
 import { getAppSetting, updateAppSetting } from '../services/dbService';
 import { toast } from 'sonner';
-import { ImageCropper } from './ImageCropper';
+
+import { ADMIN_EMAILS } from '../constants/admins';
 
 interface Props {
   userEmail?: string | null;
@@ -12,9 +13,7 @@ interface Props {
 export const CreatorProfile: React.FC<Props> = ({ userEmail }) => {
   const [photo, setPhoto] = React.useState<string | null>(null);
   const [uploading, setUploading] = React.useState(false);
-  const [isCropping, setIsCropping] = React.useState(false);
-  const [tempImage, setTempImage] = React.useState<string | null>(null);
-  const isAdmin = !!userEmail; 
+  const isAdmin = !!userEmail && ADMIN_EMAILS.includes(userEmail); 
 
   React.useEffect(() => {
     loadProfilePhoto();
@@ -34,34 +33,26 @@ export const CreatorProfile: React.FC<Props> = ({ userEmail }) => {
       return;
     }
 
+    setUploading(true);
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setTempImage(reader.result as string);
-      setIsCropping(true);
+    reader.onloadend = async () => {
+      const base64 = reader.result as string;
+      try {
+        await updateAppSetting('creator_photo', base64);
+        setPhoto(base64);
+        toast.success("Foto profil diperbarui!");
+      } catch (err) {
+        toast.error("Gagal menyimpan foto.");
+      } finally {
+        setUploading(false);
+      }
     };
     reader.readAsDataURL(file);
-    // Reset input
     e.target.value = '';
   };
 
-  const handleCropComplete = async (croppedImage: string) => {
-    setUploading(true);
-    setIsCropping(false);
-    try {
-      await updateAppSetting('creator_photo', croppedImage);
-      setPhoto(croppedImage);
-      toast.success("Foto profil berhasil diperbarui!");
-    } catch (err) {
-      toast.error("Gagal menyimpan foto.");
-    } finally {
-      setUploading(false);
-      setTempImage(null);
-    }
-  };
-
   return (
-    <>
-      <motion.div 
+    <motion.div 
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -72,7 +63,6 @@ export const CreatorProfile: React.FC<Props> = ({ userEmail }) => {
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-rose-400/5 blur-[100px] -ml-40 -mb-40 transition-all group-hover:bg-rose-400/10" />
         
         <div className="relative flex flex-col items-center gap-10 text-center">
-          {/* Avatar / Photo */}
           <div className="relative flex-shrink-0">
             <div className="w-28 h-28 md:w-36 md:h-36 bg-slate-900 rounded-[2.2rem] md:rounded-[2.8rem] flex items-center justify-center text-white shadow-2xl relative z-10 group-hover:scale-105 transition-transform duration-500 overflow-hidden border-4 border-white">
               {photo ? (
@@ -104,7 +94,7 @@ export const CreatorProfile: React.FC<Props> = ({ userEmail }) => {
           <div className="w-full max-w-2xl space-y-10 md:space-y-12">
             <div className="space-y-6">
               <div className="flex flex-col items-center gap-4">
-                <span className="text-[9px] md:text-[10px] font-black text-teal-700 uppercase tracking-[0.3em] bg-teal-50 px-5 py-2 rounded-full border border-teal-100 shadow-sm inline-block">Designer Komunitas</span>
+                <span className="text-[9px] md:text-[10px] font-black text-teal-700 uppercase tracking-[0.3em] bg-teal-50 px-5 py-2 rounded-full border border-teal-100 shadow-sm inline-block">Community Architect</span>
                 <h3 className="text-4xl md:text-6xl font-display font-black text-slate-900 tracking-tight leading-none">Muhammad Hadi</h3>
                 <div className="flex flex-col items-center">
                   <p className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-[0.2em] max-w-xs md:max-w-none leading-relaxed">
@@ -166,19 +156,5 @@ export const CreatorProfile: React.FC<Props> = ({ userEmail }) => {
         </div>
       </div>
     </motion.div>
-      
-      {tempImage && (
-        <ImageCropper
-          image={tempImage}
-          isOpen={isCropping}
-          onCropComplete={handleCropComplete}
-          onCancel={() => {
-            setIsCropping(false);
-            setTempImage(null);
-          }}
-          aspectRatio={1}
-        />
-      )}
-    </>
   );
 };

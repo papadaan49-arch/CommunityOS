@@ -1,53 +1,79 @@
 import { Blueprint, EventData } from "../types";
-import { GoogleGenAI } from "@google/genai";
 
-// Model options
+// Model options based on CommunityOS Operational Logic
 export const MODELS = {
-  DEFAULT: "gemini-3-flash-preview",
-  ADVANCED: "gemini-3-flash-preview" // Standardizing on Flash for stability as per "simple stable beta" goal
+  QUICK: "gemini-3.5-flash",
+  STRATEGIC: "gemini-3.5-flash",
+  // Refinement Hub mix logic
+  REFINE_LIGHT: "gemini-3.5-flash",
+  REFINE_MEDIUM: "gemini-3.5-flash",
+  REFINE_DEEP: "gemini-3.5-flash",
+  REFINE_EXPERIMENTAL: "gemini-3.5-flash" 
 };
 
-// Initialize Gemini directly in the frontend
-// Standardizing on process.env.GEMINI_API_KEY
-let aiClient: GoogleGenAI | null = null;
-function getGeminiClient(): GoogleGenAI {
-  if (!aiClient) {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-      console.warn("GEMINI_API_KEY is missing. AI features will fail.");
-    }
-    aiClient = new GoogleGenAI({ apiKey: key || "" });
+// Mode definitions for UI feedback
+export const MODE_INFO = {
+  QUICK: {
+    name: "Mode Diskusi (Gerilya)",
+    desc: "Cepat, brainstorming lincah, fokus pada eksekusi praktis.",
+    model: "Gemini 3.5 Flash"
+  },
+  STRATEGIC: {
+    name: "Rapat Strategis",
+    desc: "Analisis mendalam, berbasis data realitas lokal.",
+    model: "Gemini 3.5 Flash (Advanced Search)"
   }
-  return aiClient;
+};
+
+// ... existing helper functions ...
+
+/**
+ * Intelligent Model Selector for Refinement Hub
+ * Uses logic to determine the best model based on instruction complexity and data context.
+ */
+function selectRefinementModel(instructions: string, originalData: EventData): string {
+  const text = instructions.toLowerCase();
+  const hasHistory = !!originalData.previous_context;
+  const isComplex = text.length > 150 || text.includes("analisis") || text.includes("strategi") || text.includes("risiko");
+  const needsPreview = text.includes("experimental") || text.includes("terbaru") || text.includes("3.1");
+
+  if (needsPreview) return MODELS.REFINE_EXPERIMENTAL;
+  if (isComplex && hasHistory) return MODELS.REFINE_DEEP;
+  if (isComplex || hasHistory) return MODELS.REFINE_MEDIUM;
+  return MODELS.REFINE_LIGHT;
 }
 
+// Helper function to call the backend AI proxy instead of direct SDK
 async function callGemini(model: string, contents: any, config?: any) {
   try {
-    const ai = getGeminiClient();
-    const generationConfig = config?.generationConfig || config || {};
-    
-    // Correct @google/genai v1 calling pattern
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: contents,
-      config: generationConfig
+    const response = await fetch("/api/ai/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        contents: typeof contents === 'string' ? [{ role: 'user', parts: [{ text: contents }] }] : contents,
+        config: config?.generationConfig || config || {}
+      }),
     });
 
-    return { text: response.text || "" };
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return { text: data.text || "" };
   } catch (error: any) {
     const technicalError = error.message || "Unknown error";
-    console.error("Gemini call failed:", technicalError);
+    console.error("Gemini call via Proxy failed:", technicalError);
     
-    // Provide more specific feedback if possible, but keep it human-centered
     if (technicalError.includes("429") || technicalError.includes("quota")) {
       throw new Error("Kapasitas AI sedang penuh (Quota Exceeded). Silakan tunggu 1 menit lalu coba lagi.");
     }
     
-    if (technicalError.includes("API_KEY_INVALID") || technicalError.includes("403")) {
-      throw new Error("Koneksi AI terputus. Silakan periksa konfigurasi API Key di panel Settings.");
-    }
-
-    throw new Error("Maaf, terjadi gangguan teknis saat menyusun blueprint. Silakan coba lagi dalam beberapa saat.");
+    throw new Error("Maaf, terjadi gangguan teknis saat menyusun blueprint. CommunityOS sedang melakukan pemeliharaan otomatis, silakan coba lagi.");
   }
 }
 
@@ -93,21 +119,48 @@ function extractJSON(text: string): string {
   return text;
 }
 
-export async function validateInputWithAI(data: EventData): Promise<{ isValid: boolean; message?: string }> {
+export async function validateInputWithAI(data: EventData): Promise<{ isValid: boolean; feedback_taktis?: string; mode_suggestion?: { recommended: 'quick' | 'strategic'; reason: string; plus: string; minus: string } }> {
+  if (data.name.length < 3 || data.goal.length < 5) {
+    return { 
+      isValid: false, 
+      feedback_taktis: "Input kegiatan masih terlalu singkat. CommunityOS butuh sedikit lebih banyak detail untuk mulai berpikir secara taktis." 
+    };
+  }
+
   try {
     const prompt = `
-      System: CommunityOS (Critical & Analytical Mentor).
-      Input: Event "${data.name}", Goal "${data.goal}".
+      System: CommunityOS Rekan Diskusi & Mentor Strategis.
+      Role: Teman kolaborasi yang suportif, logis, dan memberdayakan.
+      Input: Kegiatan "${data.name}" oleh ${data.organization} dengan tujuan "${data.goal}" di ${data.location}.
+      Spirit/Fokus: ${data.spirit || 'Ide Baru'}.
       
-      Task: Analyze logic & substance.
-      - If simple (e.g., "Gathering"): set isValid=true but provide tactical mentoring in 'message'.
-      - Only set isValid=false if content is spam, nonsensical, or unethical.
+      Task: 
+      1. Berikan respons awal yang hangat (feedback_taktis).
+      2. Analisis kompleksitas kegiatan dan berikan saran mode (mode_suggestion).
       
-      Output JSON: { "isValid": boolean, "message": "Strategic insight" }
+      Panduan Saran Mode:
+      - Quick (Mode Diskusi): Cocok untuk acara internal, skala kecil (<50 orang), atau butuh brainstorming cepat tanpa pusing data eksternal.
+      - Strategic (Rapat Strategis): Cocok untuk acara publik, skala menengah-besar, atau butuh validasi lokasi/vendor nyata di ${data.location}.
+      
+      PENTING: Jangan mendikte. Berikan alasan (reason), kelebihan (plus), dan keterbatasan (minus) dari saran Anda agar user yang memutuskan.
+      
+      Bahasa: Indonesia (Modern, Suportif, Tidak Menghakimi).
+      
+      Output JSON only: 
+      { 
+        "isValid": boolean, 
+        "feedback_taktis": "...", 
+        "mode_suggestion": {
+          "recommended": "quick" | "strategic",
+          "reason": "Kenapa menyarankan ini",
+          "plus": "Kelebihan jika pakai mode ini",
+          "minus": "Apa yang mungkin kurang/terlewat"
+        }
+      }
     `;
 
-    const result = await callGemini(MODELS.DEFAULT, prompt, {
-      responseMimeType: "application/json",
+    const result = await callGemini(MODELS.QUICK, prompt, {
+      responseMimeType: "application/json"
     });
 
     let rawText = result.text || "{}";
@@ -116,16 +169,11 @@ export async function validateInputWithAI(data: EventData): Promise<{ isValid: b
     const parsed = JSON.parse(rawText);
     return {
       isValid: parsed.isValid ?? true,
-      message: parsed.message
+      feedback_taktis: parsed.feedback_taktis,
+      mode_suggestion: parsed.mode_suggestion
     };
   } catch (error) {
-    // If AI fails, we allow local basic validation as fallback
-    if (data.name.length < 3 || data.goal.length < 5) {
-      return { 
-        isValid: false, 
-        message: "Input kegiatan masih terlalu singkat untuk dianalisis secara realistis. Tambahkan detail agar CommunityOS bisa memberikan blueprint yang lebih akurat." 
-      };
-    }
+    console.error("Validation AI failed:", error);
     return { isValid: true };
   }
 }
@@ -134,74 +182,77 @@ export async function generateBlueprint(data: EventData & { mode?: 'quick' | 'st
   try {
     const isStrategic = data.mode === 'strategic';
     const modeInstruction = isStrategic 
-      ? 'Mode: Strategis. Berikan perencanaan operasional yang mendalam dan komprehensif, analisis risiko yang detail, dan strategi kemitraan yang kuat. Pikirkan pertumbuhan komunitas jangka panjang.'
-      : 'Mode: Quick (Gerilya). Fokus pada kecepatan taktis, kreativitas sumber daya, dan eksekusi manual berdampak tinggi dengan kerumitan minimal.';
+      ? 'Mode: STRATEGIC. Bantu user merancang kegiatan yang kokoh dengan analisis mendalam melalui pencarian data real-time. Hubungkan strategi dengan realitas lokal (vendor, lokasi, organisasi) yang benar-benar ada.'
+      : 'Mode: QUICK. Fokus pada kesederhanaan dan langkah-langkah praktis yang bisa langsung dieksekusi tanpa membebani pikiran user.';
+
+    const model = isStrategic ? MODELS.STRATEGIC : MODELS.QUICK;
+    const config: any = {
+      responseMimeType: "application/json"
+    };
+
+    if (isStrategic) {
+      config.tools = [{ googleSearch: {} }];
+    }
 
     const prompt = `
-      Anda adalah CommunityOS Intelligence, sebuah sistem yang berpikir berdasarkan data perkembangan, pengalaman lapangan, dan pola pertumbuhan komunitas di Indonesia. Tugas Anda adalah melampaui logika generik AI untuk memberikan blueprint yang kritis dan operasional.
+      System: Anda adalah CommunityOS, seorang Sparring Partner strategis untuk aktivis dan relawan komunitas di Indonesia.
+      Persona: Anda cerdas, taktis, sangat manusiawi, dan tidak pernah menghakimi. Bayangkan Anda sedang duduk bersama user dalam sebuah rapat perencanaan terbaik.
+
+      KONTEKS RAPAT:
+      - Acara: ${data.name}
+      - Penyelenggara: ${data.organization}
+      - Semangat Kegiatan: ${data.spirit || 'Ide Baru'} (Model: ${data.spirit === 'duplicate' ? 'Duplikasi Sukses/Best Practice' : data.spirit === 'growth' ? 'Ekspansi/Pengembangan' : data.spirit === 'innovation' ? 'Inovasi/Gebrakan' : 'Eksplorasi Ide Baru'})
+      - Lokasi: ${data.location}
+      - Kekuatan Tim: ${data.staff} orang (Kritikal: Pastikan beban kerja masuk akal bagi mereka!)
+      - Budget: Rp ${data.budget.toLocaleString("id-ID")}
+      - Target Utama: ${data.goal}
 
       ${modeInstruction}
-      
-      ANALISIS DATA & PENGALAMAN (Data Speaking):
-      - Organisasi: ${data.organization}
-      - Lokasi & Realitas Lapangan: ${data.location} (Analisis karakteristik lokalitas ini secara kritis).
-      - Konteks Pertumbuhan: ${data.previous_context ? `Gunakan data sejarah ini sebagai 'pengalaman operasional' untuk menentukan langkah evolusi: ${data.previous_context}` : 'Ini adalah data awal. Bangun benchmark data untuk pertumbuhan masa depan.'}
-      - Budget & Tekanan Sumber Daya: Rp ${data.budget.toLocaleString("id-ID")} (Analisis efisiensi biaya secara ketat).
-      - Tujuan: ${data.goal}
 
-      PRINSIP BERPIKIR (Critical Analytics):
-      1. DATA-DRIVEN: Setiap komponen rundown dan budget harus memiliki alasan operasional yang kuat, bukan sekadar pelengkap.
-      2. GROWTH MINDSET: Hubungkan inisiatif ini dengan potensi perkembangan jangka panjang komunitas. Jika ini acara ke-2 atau ke-3, tunjukkan peningkatan kualitas/efisiensi.
-      3. WELLBEING GUARD: Gunakan data beban kerja vs jumlah panitia (${data.staff}) untuk menilai risiko lelah secara pragmatis.
-      4. LOCAL TACTICAL: Segala saran harus bisa dieksekusi di ${data.location} dengan memperhitungkan ekosistem lokal.
+      PRINSIP "RAPAT TERBAIK" (Humanis & Data-Driven):
+      1. TRANSPARANSI LOGIKA: Pada bagian "strategy", jangan hanya memberi instruksi. Jelaskan *kenapa* Anda menyarankan hal tersebut. Gunakan nada diskusi: "Mengingat tim kita terbatas, saya menyarankan..."
+      2. REALISME LOKAL: Gunakan kekuatan Google Search (terutama di Strategic Mode) untuk menyebut tempat, komunitas, atau vendor asli di ${data.location} jika valid. Jika ragu, gunakan kategori logis.
+      3. WELLBEING GUARD: Sampaikan kekhawatiran atau apresiasi Anda terhadap ritme kerja tim secara empati di bagian 'wellbeing_guard'.
+      4. RUNDOWN MANUSIAWI: Pastikan ada waktu untuk tim bernafas (Ishoma & Buffer Time).
 
-      Output JSON (Valid & Tanpa Markdown):
+      Bahasa: Bahasa Indonesia yang modern, suportif, cerdas, dan setara (rekan sejawat).
+
+      Output JSON only (valid):
       {
         "event_meta": {
           "title": "...",
           "location": "...",
           "budget": 0,
-          "strategy": "Analisis kritis yang menghubungkan data pengalaman dan taktik lokasi",
-          "scale_classification": "Gerilya Scale",
-          "operational_complexity": 50,
-          "burnout_risk": 50,
-          "budget_pressure": 50,
-          "coordination_intensity": 50
+          "strategy": "Jelaskan alasan logis di balik pemilihan strategi agar user merasa dibimbing dan paham konteksnya.",
+          "scale_classification": "Gerilya | Community | Regional | Massive",
+          "operational_complexity": 1-100,
+          "burnout_risk": 1-100,
+          "budget_pressure": 1-100,
+          "coordination_intensity": 1-100
         },
         "wellbeing_guard": {
-          "risk_level": "Green",
-          "burnout_analysis": "Analisis berbasis data beban kerja",
-          "fatigue_analysis": "Prediksi kelelahan berdasarkan pengalaman operasional",
-          "action_items": ["Langkah nyata 1", "Langkah nyata 2"]
+          "risk_level": "Green | Yellow | Amber | Red",
+          "burnout_analysis": "Analisis jujur namun suportif tentang ritme kerja tim",
+          "fatigue_analysis": "Prediksi titik lelah dengan nada empati rekan rapat",
+          "action_items": ["Saran konkret untuk menjaga mood dan kesehatan tim"]
         },
         "operational": {
-          "budget_allocation": [ { "item": "Alokasi", "amount": 0, "label": "Catatan kritis efisiensi biaya" } ],
-          "rundown": [ { "time": "HH:mm", "task": "Aktivitas Taktis" } ]
+          "budget_allocation": [ { "item": "...", "amount": 0, "label": "Esensial | Opsional" } ],
+          "rundown": [ { "time": "...", "task": "..." } ]
         },
         "outreach": {
-          "local_partners": ["Partner spesifik yang relevan dengan data lokasi"],
-          "ig_caption": "Copywriting humanis berbasis data pertumbuhan"
+          "local_partners": ["Kategori atau Nama Partner spesifik/usulan"],
+          "ig_caption": "Copywriting yang bercerita, menyentuh, dan mengajak kolaborasi"
         }
       }
     `;
 
-    const isComplex = data.goal.length > 300 || (data.previous_context && data.previous_context.length > 200);
-    const targetModel = isComplex ? MODELS.ADVANCED : MODELS.DEFAULT;
-
-    // For simplicity, keeping the structured prompt and using responseMimeType.
-    const result = await callGemini(targetModel, prompt, {
-      responseMimeType: "application/json",
-    });
+    const result = await callGemini(model, prompt, config);
 
     let rawText = result.text || "{}";
     rawText = extractJSON(rawText);
 
     const blueprint = JSON.parse(rawText) as Blueprint;
-    
-    if (!blueprint.event_meta || !blueprint.wellbeing_guard || !blueprint.operational || !blueprint.outreach) {
-      throw new Error("Format blueprint yang diterima dari AI tidak valid.");
-    }
-
     return blueprint;
   } catch (error: any) {
     console.error("Blueprint generation failed:", error);
@@ -211,72 +262,50 @@ export async function generateBlueprint(data: EventData & { mode?: 'quick' | 'st
 
 export async function refineBlueprint(currentBlueprint: Blueprint, instructions: string, originalData: EventData): Promise<Blueprint> {
   try {
+    const isDeepDive = instructions.toLowerCase().includes("strategis") || 
+                       instructions.toLowerCase().includes("perdalam") || 
+                       instructions.toLowerCase().includes("riset") ||
+                       instructions.toLowerCase().includes("data");
+
+    const model = isDeepDive ? MODELS.REFINE_DEEP : selectRefinementModel(instructions, originalData);
+    
+    const config: any = {
+      responseMimeType: "application/json"
+    };
+
+    if (isDeepDive) {
+      config.tools = [{ googleSearch: {} }];
+    }
+
     const prompt = `
-      Anda adalah CommunityOS Intelligence. Gunakan logika kritis dan data perkembangan untuk MEMPERBARUI blueprint ini. Jadikan setiap revisi sebagai langkah evolusi berbasis data dan pengalaman instruksi.
+      System: Anda adalah Sparring Partner CommunityOS. Tugas Anda adalah membantu user mengevolusi blueprint mereka.
+      Persona: Rekan diskusi yang cerdas, suportif, dan adaptif.
+      
+      KONTEKS SEKARANG:
+      - Blueprint Saat Ini: ${JSON.stringify(currentBlueprint.event_meta)}
+      - Skala Awal: ${currentBlueprint.event_meta.scale_classification}
+      - Instruksi Penyesuaian: "${instructions}"
+      
+      TUGAS EVOLUSI:
+      1. Jika user ingin "memperdalam" atau meminta data "strategis", gunakan Google Search untuk mencari referensi nyata di ${originalData.location}.
+      2. Jangan hanya mengubah kata. Jika instruksi user signifikan, sesuaikan rundown, budget, dan strategi wellbeing (Wellbeing Guard).
+      3. Jika user meminta hal yang mustahil bagi tim (${originalData.staff} orang), berikan saran alternatif yang tetap realistis di kolom "strategy".
+      4. Pertahankan nada "Rapat Terbaik" - kita berproses bareng.
 
-      DATA BLUEPRINT SAAT INI (Benchmark):
-      - Judul: ${currentBlueprint.event_meta.title}
-      - Lokasi: ${currentBlueprint.event_meta.location}
-      - Skala & Strategi: ${currentBlueprint.event_meta.scale_classification} | ${currentBlueprint.event_meta.strategy}
-
-      INSTRUKSI PERUBAHAN (Data Pengalaman Baru):
-      "${instructions}"
-
-      PRINSIP EVOLUSI:
-      1. CRITICAL REVISION: Jangan hanya menuruti instruksi; analisis konsekuensinya terhadap operasional, budget, dan energi tim secara kritis.
-      2. DATA CONTINUITY: Pastikan perubahan selaras dengan data asli (${originalData.organization}) namun menunjukkan kemajuan berdasarkan feedback.
-      3. WELLBEING GUARD: Jika instruksi menambah beban, CommunityOS wajib memberikan mitigasi taktis di bagian action_items.
-
-      Output JSON (Valid & Tanpa Markdown):
-      {
-        "event_meta": {
-          "title": "...",
-          "location": "...",
-          "budget": 0,
-          "strategy": "Strategi yang berevolusi secara kritis berdasarkan data feedback dan realitas operasional",
-          "scale_classification": "...",
-          "operational_complexity": 50,
-          "burnout_risk": 50,
-          "budget_pressure": 50,
-          "coordination_intensity": 50
-        },
-        "wellbeing_guard": {
-          "risk_level": "...",
-          "burnout_analysis": "Analisis kritis beban kerja baru",
-          "fatigue_analysis": "Analisis kelelahan setelah revisi data",
-          "action_items": ["Langkah adaptif 1", "Langkah adaptif 2"]
-        },
-        "operational": {
-          "budget_allocation": [ { "item": "Alokasi", "amount": 0, "label": "Analisis efisiensi biaya baru" } ],
-          "rundown": [ { "time": "HH:mm", "task": "Aktivitas Hasil Revisi" } ]
-        },
-        "outreach": {
-          "local_partners": ["Partner yang relevan dengan arah evolusi baru"],
-          "ig_caption": "Caption yang mencerminkan pertumbuhan setelah revisi"
-        }
-      }
+      Bahasa: Indonesia (Modern, Suportif, Cerdas).
+      
+      Output JSON (Sesuai struktur Blueprint yang ada).
     `;
 
-    const isComplex = instructions.length > 150 || (originalData.goal && originalData.goal.length > 300);
-    const targetModel = isComplex ? MODELS.ADVANCED : MODELS.DEFAULT;
-
-    const result = await callGemini(targetModel, prompt, {
-      responseMimeType: "application/json",
-    });
+    const result = await callGemini(model, prompt, config);
 
     let rawText = result.text || "{}";
     rawText = extractJSON(rawText);
 
     const refined = JSON.parse(rawText) as Blueprint;
-    
-    if (!refined.event_meta || !refined.wellbeing_guard || !refined.operational || !refined.outreach) {
-      throw new Error("Format blueprint revisi tidak valid.");
-    }
-
     return refined;
   } catch (error: any) {
     console.error("Blueprint refinement failed:", error);
     throw error;
   }
 }
-

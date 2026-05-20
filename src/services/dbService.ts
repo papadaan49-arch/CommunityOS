@@ -11,7 +11,7 @@ import {
   arrayUnion, 
   arrayRemove 
 } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { Blueprint, EventData } from '../types';
 
 export interface BlueprintDocument {

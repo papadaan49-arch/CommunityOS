@@ -41,7 +41,7 @@ export const HelpTooltip: React.FC<Props> = ({ title, description }) => {
             >
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-teal-600">{title}</span>
+                  <span className="text-[10px] font-bold tracking-widest text-teal-600">{title}</span>
                   <button onClick={() => setIsOpen(false)} className="text-slate-300 hover:text-slate-900">
                     <X className="w-4 h-4" />
                   </button>

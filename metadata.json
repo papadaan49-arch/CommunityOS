@@ -1,5 +1,6 @@
 {
   "name": "CommunityOS — AI Operating System for Communities",
   "description": "Platform operasi AI untuk membantu komunitas merancang kegiatan, menjaga kesehatan tim, dan meningkatkan dampak sosial secara berkelanjutan.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

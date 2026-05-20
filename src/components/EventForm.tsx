@@ -1,5 +1,7 @@
 import React from 'react';
+import { Sparkles, Info, CheckCircle2, AlertCircle, Lightbulb, Target, TrendingUp, Rocket } from 'lucide-react';
 import { EventData } from '../types';
+import { MODE_INFO, validateInputWithAI } from '../services/geminiService';
 import { HelpTooltip } from './HelpTooltip';
 import { GUIDANCE_DATA } from '../constants/guidance';
 
@@ -14,6 +16,14 @@ interface Props {
 
 export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLoggedIn, userEmail, onLoginRequest }) => {
   const [mode, setMode] = React.useState<'quick' | 'strategic'>('quick');
+  const [mentorSuggestion, setMentorSuggestion] = React.useState<{
+    recommended: 'quick' | 'strategic';
+    reason: string;
+    plus: string;
+    minus: string;
+  } | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+
   const [formValues, setFormValues] = React.useState({
     name: '',
     organization: '',
@@ -23,10 +33,57 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
     budget: '',
     type: '',
     goal: '',
+    spirit: 'idea',
     previous_context: '',
   });
 
   const [touched, setTouched] = React.useState<Record<string, boolean>>({});
+
+  const validate = () => {
+    return {
+      name: formValues.name.length >= 5,
+      organization: formValues.organization.length >= 3,
+      location: formValues.location.length >= 3,
+      participants: parseInt(formValues.participants) >= 5,
+      budget: formValues.budget !== '' && parseInt(formValues.budget) >= 0,
+      type: formValues.type.length >= 3,
+      goal: formValues.goal.length >= 15,
+      previous_context: true,
+    };
+  };
+
+  const validation = validate();
+  const isValid = Object.values(validation).every(Boolean);
+
+  // Removed automatic mentor analysis to prevent infinite loops and improve user peace of mind.
+  // Analyzing on demand instead.
+  const handleRequestMentor = async () => {
+    if (!isValid || isAnalyzing) return;
+    
+    setIsAnalyzing(true);
+    try {
+      const result = await validateInputWithAI({
+        ...formValues,
+        participants: parseInt(formValues.participants) || 0,
+        staff: parseInt(formValues.staff) || 0,
+        budget: parseInt(formValues.budget) || 0,
+        type: formValues.type,
+        spirit: formValues.spirit,
+      });
+      if (result.mode_suggestion) {
+        setMentorSuggestion(result.mode_suggestion);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Reset suggestion if important fields change significantly
+  React.useEffect(() => {
+    if (mentorSuggestion) setMentorSuggestion(null);
+  }, [formValues.goal, formValues.participants, formValues.location]);
 
   React.useEffect(() => {
     if (prefill) {
@@ -39,28 +96,12 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
         budget: prefill.budget.toString(),
         type: prefill.type,
         goal: prefill.goal,
+        spirit: prefill.spirit || 'idea',
         previous_context: prefill.previous_context || '',
       });
-      // Clear touched state when prefilled
       setTouched({});
     }
   }, [prefill]);
-
-  const validate = () => {
-    return {
-      name: formValues.name.length >= 5,
-      organization: formValues.organization.length >= 3,
-      location: formValues.location.length >= 3,
-      participants: parseInt(formValues.participants) >= 5,
-      budget: formValues.budget !== '' && parseInt(formValues.budget) >= 0,
-      type: formValues.type.length >= 3,
-      goal: formValues.goal.length >= 15,
-      previous_context: true, // Always valid as it is optional
-    };
-  };
-
-  const validation = validate();
-  const isValid = Object.values(validation).every(Boolean);
 
   const [cooldown, setCooldown] = React.useState(0);
   const prevLoading = React.useRef(loading);
@@ -94,6 +135,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
       goal: formValues.goal,
       previous_context: formValues.previous_context,
       mode: mode,
+      spirit: formValues.spirit,
     });
   };
 
@@ -115,14 +157,58 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
       onSubmit={handleSubmit} 
       className="bg-white p-6 md:p-14 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 space-y-8 md:space-y-12 relative overflow-hidden"
     >
-      <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-full blur-3xl -mr-16 -mt-16 opacity-50" />
-      
       <div className="relative border-b border-slate-100 pb-6 md:pb-8">
         <h2 className="text-lg md:text-2xl font-display font-black text-slate-800 mb-1">Rancang Kegiatan</h2>
         <p className="text-[10px] md:text-sm text-slate-500 italic">"Lengkapi detail untuk blueprint yang personal."</p>
       </div>
 
       <div className="space-y-6 md:space-y-10 relative">
+        <div>
+          <label className={labelClass}>Spirit & Fokus Kegiatan</label>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                { id: 'idea', label: 'Ide Baru', icon: Lightbulb, desc: 'Mulai dari nol' },
+                { id: 'duplicate', label: 'Tiru Sukses', icon: Target, desc: 'Gunakan best-practice' },
+                { id: 'growth', label: 'Kembangkan', icon: TrendingUp, desc: 'Naikkan skala' },
+                { id: 'innovation', label: 'Inovasi', icon: Rocket, desc: 'Gebrakan baru' }
+              ].map((s) => {
+                const Icon = s.icon;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setFormValues({ ...formValues, spirit: s.id })}
+                    className={`p-4 rounded-2xl border text-left transition-all group ${
+                      formValues.spirit === s.id 
+                        ? 'bg-teal-50 border-teal-200 ring-2 ring-teal-500/10' 
+                        : 'bg-white border-slate-100 hover:border-slate-200'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2 transition-transform group-hover:rotate-6 ${
+                      formValues.spirit === s.id ? 'bg-teal-100 text-teal-600' : 'bg-slate-50 text-slate-400'
+                    }`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                      formValues.spirit === s.id ? 'text-teal-700' : 'text-slate-600'
+                    }`}>
+                      {s.label}
+                    </div>
+                    <div className="text-[9px] text-slate-400 font-medium leading-tight">
+                      {s.desc}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+          {formValues.spirit !== 'idea' && (
+            <div className="mt-3 flex items-center gap-2 text-[10px] text-teal-600 font-bold bg-teal-50/30 p-3 rounded-xl border border-teal-100/50 animate-in fade-in slide-in-from-top-2">
+              <Sparkles className="w-3 h-3" />
+              <span>{formValues.spirit === 'duplicate' ? 'Pastikan cantumkan rincian kegiatan sebelumnya di kolom "Referensi" agar blueprint lebih presisi.' : formValues.spirit === 'growth' ? 'Sebutkan pencapaian terakhir di kolom "Referensi" untuk analisis pengembangan.' : 'Jelaskan apa yang ingin diubah secara fundamental di kolom "Tujuan".'}</span>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
             <label className={labelClass}>Nama Kegiatan</label>
@@ -223,7 +309,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
             />
           </div>
           <div>
-            <label className={labelClass}>Estimasi Budget (IDR)</label>
+            <label className={labelClass}>Estimasi Budget (Rp)</label>
             <input
               type="number"
               className={inputClass('budget')}
@@ -265,93 +351,109 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
             onChange={(e) => setFormValues({ ...formValues, previous_context: e.target.value })}
             disabled={loading || cooldown > 0}
           />
-          <p className="text-[9px] text-slate-400 mt-1.5 ml-1 leading-relaxed">
-            Memberikan konteks sejarah membantu CommunityOS menyusun strategi yang lebih realistis.
-          </p>
         </div>
       </div>
 
       <div className="pt-2 relative">
-        {/* Live Operational Insight Component */}
-        <div className="mb-6 p-5 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Operational Insight</span>
-          </div>
-
-          {(() => {
-            const staff = parseInt(formValues.staff) || 0;
-            const participants = parseInt(formValues.participants) || 0;
-            const budget = parseInt(formValues.budget) || 0;
-
-            if (staff === 0 && participants === 0) {
-              return <p className="text-xs text-slate-400 italic">"Lengkapi jumlah panitia dan peserta untuk melihat estimasi beban kerja."</p>;
-            }
-
-            const ratio = participants / (staff || 1);
-            let riskMsg = "";
-            let riskLevel = "Normal";
-
-            if (ratio > 25) {
-              riskLevel = "Tinggi";
-              riskMsg = "Rasio peserta per panitia sangat tinggi. Risiko burnout operasional terdeteksi.";
-            } else if (ratio > 15) {
-              riskLevel = "Sedang";
-              riskMsg = "Beban kerja tim cukup intensif. Pastikan pembagian delegasi jelas.";
-            } else if (staff > 0) {
-              riskLevel = "Aman";
-              riskMsg = "Kapasitas tim terlihat ideal untuk jumlah peserta ini.";
-            }
-
-            return (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-700">Estimasi Intensitas</span>
-                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                    riskLevel === 'Tinggi' ? 'bg-rose-100 text-rose-600' : 
-                    riskLevel === 'Sedang' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
-                  }`}>
-                    {riskLevel}
-                  </span>
+        {/* Mentor Suggestion Card */}
+        {isValid && (
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className={`p-6 rounded-3xl border transition-all duration-500 ${
+              isAnalyzing 
+                ? 'bg-slate-50 border-slate-100' 
+                : mentorSuggestion 
+                  ? 'bg-white border-teal-100 shadow-sm' 
+                  : 'bg-slate-50 border-slate-100'
+            }`}>
+              <div className="flex items-start gap-4">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                  isAnalyzing ? 'bg-slate-200 animate-pulse' : 'bg-teal-500'
+                }`}>
+                  {isAnalyzing ? (
+                    <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Lightbulb className="w-5 h-5 text-white" />
+                  )}
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed italic">
-                  "{riskMsg}"
-                </p>
-                {budget > 0 && budget < 200000 && participants > 30 && (
-                  <div className="flex items-start gap-2 p-2.5 bg-white border border-slate-100 rounded-xl mt-2">
-                    <span className="text-xs">💡</span>
-                    <p className="text-[10px] text-slate-500 leading-tight">
-                      Budget terbatas untuk peserta sebanyak ini. CommunityOS akan prioritaskan strategi <span className="font-bold text-teal-600">Gerilya Scale</span>.
-                    </p>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Analisis Mentor CommunityOS</h3>
+                    {isAnalyzing ? (
+                      <p className="text-sm text-slate-500 italic">Menganalisis skenario terbaik untukmu...</p>
+                    ) : mentorSuggestion ? (
+                      <p className="text-sm md:text-base text-slate-700 font-medium leading-relaxed">
+                        {mentorSuggestion.reason}
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        <p className="text-sm text-slate-400 italic">Butuh saran untuk memilih mode perencanaan yang paling tepat?</p>
+                        <button
+                          type="button"
+                          onClick={handleRequestMentor}
+                          disabled={isAnalyzing}
+                          className="flex items-center gap-2 px-4 py-2 bg-teal-50 text-teal-600 border border-teal-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all group"
+                        >
+                          <Sparkles className="w-3 h-3 group-hover:rotate-12 transition-transform" />
+                          <span>Dapatkan Saran Mentor</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })()}
-        </div>
 
-        <div className="flex items-center gap-2 mb-6 p-1.5 bg-slate-50 rounded-2xl w-full md:w-fit mx-auto border border-slate-100">
+                  {!isAnalyzing && mentorSuggestion && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+                        <div className="flex items-center gap-2 mb-2 text-emerald-700">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">Kelebihan</span>
+                        </div>
+                        <p className="text-xs text-emerald-800/80 leading-relaxed">{mentorSuggestion.plus}</p>
+                      </div>
+                      <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100">
+                        <div className="flex items-center gap-2 mb-2 text-amber-700">
+                          <AlertCircle className="w-4 h-4" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">Keterbatasan</span>
+                        </div>
+                        <p className="text-xs text-amber-800/80 leading-relaxed">{mentorSuggestion.minus}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {mentorSuggestion && (
+              <div className="mt-4 ml-14 flex items-center gap-2">
+                <Info className="w-3.5 h-3.5 text-slate-400" />
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                  Saran: Gunakan <span className="text-teal-600 font-bold">{MODE_INFO[mentorSuggestion.recommended.toUpperCase() as keyof typeof MODE_INFO].name}</span>, silakan sesuaikan di bawah.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col md:flex-row items-stretch gap-4 mb-8">
           <div
-            role="button"
-            tabIndex={0}
             onClick={() => setMode('quick')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setMode('quick'); }}
-            className={`flex-1 md:flex-none cursor-pointer flex flex-col items-center gap-1.5 px-3 md:px-6 py-3 rounded-2xl transition-all border ${
+            className={`flex-1 cursor-pointer flex flex-col items-start gap-2 p-5 rounded-2xl transition-all border ${
               mode === 'quick' 
-                ? 'bg-white shadow-xl shadow-teal-900/5 text-teal-600 border-teal-100 scale-[1.02] md:scale-105' 
-                : 'text-slate-400 hover:text-slate-500 border-transparent hover:bg-white/50'
+                ? 'bg-teal-50/50 border-teal-200 ring-4 ring-teal-500/5' 
+                : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
             }`}
           >
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest whitespace-nowrap">Quick Mode</span>
-              <HelpTooltip {...GUIDANCE_DATA.QUICK_MODE} />
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] uppercase font-bold tracking-widest ${mode === 'quick' ? 'text-teal-700' : 'text-slate-400'}`}>
+                {MODE_INFO.QUICK.name}
+              </span>
+              {mode === 'quick' && <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />}
             </div>
-            <span className="text-[7px] md:text-[8px] font-medium opacity-60">Taktis & Cepat</span>
+            <p className={`text-xs leading-relaxed ${mode === 'quick' ? 'text-teal-600/80' : 'text-slate-400'}`}>
+              {MODE_INFO.QUICK.desc}
+            </p>
           </div>
-          <div className="w-px h-6 md:h-8 bg-slate-200/50" />
+          
           <div
-            role="button"
-            tabIndex={0}
             onClick={() => {
               if (!isLoggedIn && onLoginRequest) {
                 onLoginRequest();
@@ -359,52 +461,68 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
                 setMode('strategic');
               }
             }}
-            onKeyDown={(e) => { 
-              if (e.key === 'Enter' || e.key === ' ') {
-                if (!isLoggedIn && onLoginRequest) {
-                  onLoginRequest();
-                } else {
-                  setMode('strategic');
-                }
-              }
-            }}
-            className={`flex-1 md:flex-none cursor-pointer flex flex-col items-center gap-1.5 px-3 md:px-6 py-3 rounded-2xl transition-all border ${
+            className={`flex-1 cursor-pointer flex flex-col items-start gap-2 p-5 rounded-2xl transition-all border ${
               mode === 'strategic' 
-                ? 'bg-white shadow-xl shadow-teal-900/5 text-teal-600 border-teal-100 scale-[1.02] md:scale-105' 
-                : 'text-slate-400 hover:text-slate-500 border-transparent hover:bg-white/50'
+                ? 'bg-teal-50/50 border-teal-200 ring-4 ring-teal-500/5' 
+                : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
             }`}
           >
-            <div className="flex items-center gap-1.5 md:gap-2">
-              <div className="flex flex-col items-center">
-                <span className="text-[9px] md:text-[10px] uppercase font-bold tracking-widest leading-none whitespace-nowrap">Strategic Mode</span>
-                {!isLoggedIn && <span className="text-[6px] md:text-[7px] text-amber-500 font-bold mt-0.5">LOCKED</span>}
-              </div>
-              <HelpTooltip {...GUIDANCE_DATA.STRATEGIC_MODE} />
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] uppercase font-bold tracking-widest ${mode === 'strategic' ? 'text-teal-700' : 'text-slate-400'}`}>
+                {MODE_INFO.STRATEGIC.name}
+              </span>
+              {mode === 'strategic' && <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />}
             </div>
-            <span className="text-[7px] md:text-[8px] font-medium opacity-60">Analisis Mendalam</span>
+            <p className={`text-xs leading-relaxed ${mode === 'strategic' ? 'text-teal-600/80' : 'text-slate-400'}`}>
+              {MODE_INFO.STRATEGIC.desc}
+            </p>
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading || cooldown > 0 || (Object.keys(touched).length > 0 && !isValid)}
-          className="w-full relative group disabled:cursor-not-allowed"
-        >
-          <div className="absolute -inset-1 bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
-          <div className="relative bg-slate-900 group-hover:bg-slate-800 text-white font-display font-semibold py-3.5 md:py-4 rounded-2xl transition-all disabled:opacity-75 flex flex-col items-center justify-center gap-0.5 text-sm md:text-base">
-            {loading ? (
-              'Menganalisis...'
-            ) : cooldown > 0 ? (
-              <span className="text-teal-400">Cooldown aktif • {cooldown}s</span>
-            ) : (
-              'Mulai Rancang Blueprint'
-            )}
-          </div>
-        </button>
-        {cooldown > 0 && !loading && (
-          <p className="text-center text-[10px] font-semibold text-slate-400 mt-3 animate-pulse">
-            Community<span className="text-teal-600">OS</span> sedang menjaga stabilitas sistem ✨
-          </p>
+        {mode === 'quick' ? (
+          <button
+            type="submit"
+            disabled={loading || cooldown > 0 || (Object.keys(touched).length > 0 && !isValid)}
+            className="w-full relative group disabled:cursor-not-allowed"
+          >
+            <div className="relative bg-slate-900 group-hover:bg-slate-800 text-white font-display font-semibold py-4 rounded-2xl transition-all disabled:opacity-75 flex items-center justify-center gap-2 text-sm md:text-base">
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span>Membuka Diskusi...</span>
+                </>
+              ) : cooldown > 0 ? (
+                `Tunggu ${cooldown}s...`
+              ) : (
+                <>
+                  <span>Mulai Diskusi Gerilya</span>
+                  <Sparkles className="w-4 h-4" />
+                </>
+              )}
+            </div>
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={loading || cooldown > 0 || (Object.keys(touched).length > 0 && !isValid)}
+            className="w-full relative group disabled:cursor-not-allowed"
+          >
+            <div className="relative bg-gradient-to-r from-teal-600 to-emerald-600 group-hover:from-teal-700 group-hover:to-emerald-700 text-white font-display font-semibold py-4 rounded-2xl transition-all disabled:opacity-75 flex items-center justify-center gap-2 text-sm md:text-base shadow-lg shadow-teal-500/20">
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <span>Menyiapkan Rapat Strategis...</span>
+                </>
+              ) : cooldown > 0 ? (
+                `Tunggu ${cooldown}s...`
+              ) : (
+                <>
+                  <span>Mulai Rapat Strategis (Deep Dive)</span>
+                  <Sparkles className="w-4 h-4 text-teal-200" />
+                </>
+              )}
+            </div>
+          </button>
         )}
       </div>
     </form>

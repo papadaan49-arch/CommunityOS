@@ -5,13 +5,13 @@ import { LoadingState } from './components/LoadingState';
 import { CommunityGuidelines } from './components/CommunityGuidelines';
 import { QuickTemplates } from './components/QuickTemplates';
 import { BlueprintHistory } from './components/BlueprintHistory';
-import { PortfolioDashboard } from './components/PortfolioDashboard';
 import { BrandLogo } from './components/BrandLogo';
 import { DonationModal } from './components/DonationModal';
+import { CreatorProfile } from './components/CreatorProfile';
 import { generateBlueprint, validateInputWithAI, refineBlueprint } from './services/geminiService';
 import { saveBlueprintToHistory, HistoryItem, clearHistory as clearLocalHistory, clearSessionCache } from './services/storageService';
 import { saveBlueprintToCloud, getBlueprintFromCloud, updateBlueprintInCloud } from './services/dbService';
-import { auth, loginWithGoogle, logout } from './lib/firebase';
+import { auth, loginWithGoogle, logout } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Blueprint, EventData } from './types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,8 +29,6 @@ export default function App() {
   const [currentEventData, setCurrentEventData] = React.useState<EventData | null>(null);
   const [user, setUser] = React.useState<User | null>(null);
   const [isDonationOpen, setIsDonationOpen] = React.useState(false);
-  const [activeView, setActiveView] = React.useState<'home' | 'portfolio'>('home');
-  const [targetOrgId, setTargetOrgId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -42,14 +40,29 @@ export default function App() {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
-    const orgId = params.get('orgId');
     
     if (id) {
       loadCloudBlueprint(id);
-    } else if (orgId) {
-      setTargetOrgId(orgId);
-      setActiveView('portfolio');
     }
+  }, []);
+
+  React.useEffect(() => {
+    const checkAI = async () => {
+      try {
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.ai_configured) {
+            toast.warning("Konfigurasi AI belum lengkap. Harap masukkan API Key di panel Settings > Secrets agar CommunityOS bisa bekerja.", {
+              duration: 10000
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Health check failed", err);
+      }
+    };
+    checkAI();
   }, []);
 
   const loadCloudBlueprint = async (id: string) => {
@@ -73,12 +86,12 @@ export default function App() {
   };
 
   const loadingMessages = [
-    "Menganalisis kondisi komunitas...",
-    "Menyesuaikan strategi operasional...",
-    "Menimbang risiko lelah mental...",
-    "Menilai kerumitan logistik...",
-    "Memetakan ritme kolaborasi...",
-    "Finalisasi blueprint komunitas...",
+    "Membuka ruang diskusi...",
+    "Memosisikan diri sebagai partner...",
+    "Menganalisis realitas lapangan...",
+    "Menghitung beban kerja tim...",
+    "Mencari referensi strategis...",
+    "Menyusun usulan terbaik untukmu...",
   ];
 
   React.useEffect(() => {
@@ -110,13 +123,13 @@ export default function App() {
       // Step 1: AI Sanity Check
       const validation = await validateInputWithAI(data);
       if (!validation.isValid) {
-        throw new Error(validation.message || 'Input kegiatan masih terlalu singkat untuk dianalisis.');
+        throw new Error(validation.feedback_taktis || 'Input kegiatan masih terlalu singkat untuk dianalisis.');
       }
 
       // If valid but has an insight message, show it as a tactical tip
-      if (validation.message) {
+      if (validation.feedback_taktis) {
         toast.info("Insight Strategis", {
-          description: validation.message,
+          description: validation.feedback_taktis,
           duration: 8000,
         });
       }
@@ -168,7 +181,8 @@ export default function App() {
       }
       
       // Default human-centered error message for technical failures
-      setError('Terjadi gangguan koneksi ke server AI. Silakan coba lagi dalam beberapa saat.');
+      const finalError = errorMessage || 'Terjadi gangguan koneksi ke server AI. CommunityOS sedang mencoba pemulihan otomatis, silakan coba lagi dalam beberapa saat.';
+      setError(finalError);
     }
   };
 
@@ -197,7 +211,8 @@ export default function App() {
     } catch (err: any) {
       console.error(err);
       setLoading(false);
-      setError('Gagal memperbarui blueprint. Silakan coba lagi beberapa saat.');
+      const errorMessage = err.message || 'Gagal memperbarui blueprint. Silakan coba lagi beberapa saat.';
+      setError(errorMessage);
     }
   };
 
@@ -243,7 +258,7 @@ export default function App() {
       if (user) {
         // Save public profile
         const { setDoc, doc, serverTimestamp } = await import('firebase/firestore');
-        const { db } = await import('./lib/firebase');
+        const { db } = await import('./services/firebase');
         await setDoc(doc(db, 'users', user.uid, 'public', 'profile'), {
           displayName: user.displayName,
           photoURL: user.photoURL,
@@ -282,15 +297,6 @@ export default function App() {
           </motion.div>
           
           <div className="flex items-center gap-2 md:gap-3">
-            {user && (
-              <button 
-                onClick={() => setActiveView(prev => prev === 'home' ? 'portfolio' : 'home')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all border ${activeView === 'portfolio' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-100 hover:bg-slate-50'}`}
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                {activeView === 'portfolio' ? 'Tutup Portofolio' : 'Portofolio Di Sini'}
-              </button>
-            )}
             <button 
               onClick={() => setIsDonationOpen(true)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-all border border-rose-100/50"
@@ -306,11 +312,12 @@ export default function App() {
                     navigator.clipboard.writeText(url);
                     toast.success("Link kolaborasi disalin!");
                   }}
-                  className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${currentBlueprintId ? 'bg-teal-50 text-teal-700 hover:bg-teal-100' : 'bg-slate-50 text-slate-300 cursor-not-allowed'} transition-all`}
+                  className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 rounded-lg text-xs font-medium ${currentBlueprintId ? 'bg-teal-50 text-teal-700 hover:bg-teal-100' : 'bg-slate-50 text-slate-300 cursor-not-allowed'} transition-all`}
                   disabled={!currentBlueprintId}
+                  title="Bagikan Link Kolaborasi"
                 >
                   <Link className="w-3.5 h-3.5" />
-                  Bagikan
+                  <span className="hidden sm:inline">Bagikan</span>
                 </button>
                 <div className="flex items-center gap-2 pl-3 border-l border-slate-100">
                   <div className="w-7 h-7 rounded-full overflow-hidden border border-slate-100">
@@ -359,32 +366,7 @@ export default function App() {
 
       <main className="max-w-2xl mx-auto content-padding pt-8 md:pt-20 pb-20 md:pb-32">
         <AnimatePresence mode="wait">
-          {activeView === 'portfolio' ? (
-            <motion.div
-              key="portfolio"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              {targetOrgId && (
-                <button 
-                  onClick={() => {
-                    setTargetOrgId(null);
-                    setActiveView('home');
-                    const newUrl = new URL(window.location.href);
-                    newUrl.searchParams.delete('orgId');
-                    window.history.pushState({}, '', newUrl);
-                  }}
-                  className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-teal-600 transition-colors"
-                >
-                  <ArrowLeft className="w-3 h-3" />
-                  Kembali ke Dashboard Utama
-                </button>
-              )}
-              <PortfolioDashboard targetOrgId={targetOrgId} />
-            </motion.div>
-          ) : loading ? (
+          {loading ? (
             <motion.div
               key="loading"
               initial={{ opacity: 0 }}
@@ -392,7 +374,7 @@ export default function App() {
               exit={{ opacity: 0 }}
             >
               <LoadingState 
-                message={loadingMessages[loadingMessageIndex]} 
+                message={`${loadingMessages[loadingMessageIndex]}${currentEventData?.mode === 'strategic' ? ' (Deep Dive Mode)' : ''}`} 
                 progress={loadingProgress} 
               />
             </motion.div>
@@ -416,15 +398,15 @@ export default function App() {
                   <div className="space-y-3 md:space-y-4">
                     <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-semibold uppercase tracking-widest border border-teal-100/50">
                       <Sparkles className="w-3 md:w-3.5 h-3 md:h-3.5" />
-                      AI Planning Assistant
+                      Your Strategic Sparring Partner
                     </div>
                     <h1 className="text-3xl md:text-6xl font-display font-bold text-slate-900 tracking-tight leading-[1.2] md:leading-[1.1]">
-                      Halo, Teman Perjuangan! 👋
+                      Halo, Rekan Perjuangan! 👋
                     </h1>
                   </div>
                 </div>
                 <p className="text-slate-600 text-base md:text-xl leading-[1.7] md:leading-[1.8] max-w-xl mx-auto md:mx-0">
-                  Sistem operasi komunitas yang terus berevolusi. Rancang blueprint yang efisien, berdampak, dan dilengkapi <span className="text-teal-600 font-semibold">Wellbeing Guard</span> berbasis <span className="italic">data lapangan</span>.
+                  Sistem operasi komunitas yang dirancang untuk menjadi teman diskusi strategismu. Jelajahi blueprint yang logis, grounded, dan dilengkapi <span className="text-teal-600 font-semibold">Wellbeing Guard</span> demi keberlanjutan bersama.
                 </p>
               </header>
 
@@ -482,6 +464,8 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <CreatorProfile userEmail={user?.email} />
       </main>
 
       <DonationModal 

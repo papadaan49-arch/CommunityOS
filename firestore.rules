@@ -19,6 +19,13 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in ['papadaan49@gmail.com', 'orangmelayu9@gmail.com'] ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     function incoming() {
       return request.resource.data;
     }
@@ -28,6 +35,12 @@ service cloud.firestore {
     }
 
     // --- Entity Validations ---
+
+    function isValidAppSetting(data) {
+      return data.keys().hasAll(['value', 'updatedAt'])
+        && data.value is string
+        && data.updatedAt == request.time;
+    }
 
     function isValidBlueprint(data, isUpdate) {
       return data.keys().hasAll(['data', 'originalData', 'ownerId', 'createdAt', 'updatedAt'])
@@ -54,7 +67,7 @@ service cloud.firestore {
 
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if isAdmin() && isValidId(settingId) && isValidAppSetting(incoming());
     }
 
     match /blueprints/{blueprintId} {

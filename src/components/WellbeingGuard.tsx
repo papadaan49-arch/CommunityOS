@@ -148,7 +148,7 @@ export const WellbeingGuard: React.FC<Props> = ({ guard }) => {
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-2">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                     <BrandLogo size="xs" variant="wellbeing" />
-                    Verified wellbeing protocol
+                    Protokol Wellbeing Aktif
                   </span>
                 </div>
               </div>

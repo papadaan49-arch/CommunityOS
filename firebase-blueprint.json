@@ -10,6 +10,10 @@
         "ownerId": { "type": "string", "description": "UID of the creator." },
         "collaborators": { "type": "array", "description": "List of user IDs allowed to edit/view." },
         "isPublic": { "type": "boolean", "description": "Whether anyone with the link can view." },
+        "realizationStatus": { "type": "string", "description": "The current state of live realization: draft, ready, or realized." },
+        "realizationDetails": { "type": "object", "description": "Detailed telemetry of real implementation outcomes." },
+        "rundownChecklist": { "type": "object", "description": "Interactive rundown items checked/unchecked." },
+        "rundownNotes": { "type": "object", "description": "Live field notes per agenda item." },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

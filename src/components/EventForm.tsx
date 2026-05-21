@@ -1,7 +1,8 @@
 import React from 'react';
-import { Sparkles, Info, CheckCircle2, AlertCircle, Lightbulb, Target, TrendingUp, Rocket } from 'lucide-react';
+import { Sparkles, Info, CheckCircle2, AlertCircle, Lightbulb, Target, TrendingUp, Rocket, Lock, Coins } from 'lucide-react';
+import { toast } from 'sonner';
 import { EventData } from '../types';
-import { MODE_INFO, validateInputWithAI } from '../services/geminiService';
+import { MODE_INFO, validateInputWithAI, getBudgetSuggestion, BudgetSuggestion } from '../services/geminiService';
 import { HelpTooltip } from './HelpTooltip';
 import { GUIDANCE_DATA } from '../constants/guidance';
 
@@ -23,6 +24,129 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
     minus: string;
   } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+
+  const [budgetSuggestion, setBudgetSuggestion] = React.useState<BudgetSuggestion | null>(null);
+  const [isCalculatingBudget, setIsCalculatingBudget] = React.useState(false);
+
+  const handleSuggestBudget = async () => {
+    if (isCalculatingBudget) return;
+    setIsCalculatingBudget(true);
+    setBudgetSuggestion(null);
+    try {
+      const suggestion = await getBudgetSuggestion({
+        name: formValues.name || "Acara Komunitas",
+        location: formValues.location || "Indonesia",
+        participants: parseInt(formValues.participants) || 20,
+        staff: parseInt(formValues.staff) || 5,
+        type: formValues.type || "Kegiatan",
+        goal: formValues.goal || "Melaksanakan kegiatan bersama",
+      });
+      setBudgetSuggestion(suggestion);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsCalculatingBudget(false);
+    }
+  };
+
+  const [detectingLocation, setDetectingLocation] = React.useState(false);
+
+  const handleDetectLocation = async () => {
+    if (detectingLocation) return;
+    setDetectingLocation(true);
+    toast.info("📍 Sedang mendeteksi jaringan/GPS Anda...");
+    
+    // Attempt 1: Fast IP Geolocation via secure HTTPS ipapi.co
+    try {
+      const response = await fetch('https://ipapi.co/json/');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.city) {
+          setFormValues(prev => ({ ...prev, location: data.city }));
+          setTouched(prev => ({ ...prev, location: true }));
+          setDetectingLocation(false);
+          toast.success(`✅ Berhasil mendeteksi lokasi jaringan Anda: ${data.city}!`);
+          return;
+        }
+      }
+    } catch (e) {
+      // Fallback silently if blocked, we try GPS next
+    }
+
+    // Attempt 2: HTML5 Geolocation API (now active because of requestFramePermissions)
+    if ('geolocation' in navigator) {
+      toast.info("🌐 Memindai koordinat GPS / Wi-Fi...");
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const geoResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`);
+            if (geoResponse.ok) {
+              const geoData = await geoResponse.json();
+              const city = geoData.address.city || 
+                           geoData.address.town || 
+                           geoData.address.municipality || 
+                           geoData.address.village ||
+                           geoData.address.county || 
+                           geoData.address.state || 
+                           'Banjarmasin';
+              setFormValues(prev => ({ ...prev, location: city }));
+              setTouched(prev => ({ ...prev, location: true }));
+              toast.success(`✅ Berhasil menjaring lokasi GPS rill: ${city}!`);
+            } else {
+              // Final fallback if nominatim is slow
+              setFormValues(prev => ({ ...prev, location: 'Banjarmasin' }));
+              toast.success("✅ Lokasi diselaraskan ke Banjarmasin!");
+            }
+          } catch (err) {
+            console.error("Gagal menjaring status lokasi detil:", err);
+            toast.error("Gagal menerjemahkan koordinat ke nama kota.");
+          } finally {
+            setDetectingLocation(false);
+          }
+        },
+        (error) => {
+          console.warn("Izin navigasi ditolak atau error GPS:", error);
+          toast.error("Akses lokasi ditolak browser / tidak didukung di perangkat Anda.");
+          setDetectingLocation(false);
+        },
+        { enableHighAccuracy: false, timeout: 6000 }
+      );
+    } else {
+      setDetectingLocation(false);
+      toast.error("Browser Anda tidak mendukung layanan Geolocation.");
+    }
+  };
+
+  const [generatingReference, setGeneratingReference] = React.useState(false);
+
+  const handleAutoFillReference = async () => {
+    if (generatingReference) return;
+    
+    // Validate we have enough details to feed the AI reference model
+    if (!formValues.name.trim() || !formValues.goal.trim()) {
+      toast.warning("Silakan isi 'Nama Kegiatan/Event' dan 'Tujuan/Goal' terlebih dahulu agar mentor bisa merancang model referensi yang sesuai!");
+      return;
+    }
+
+    setGeneratingReference(true);
+    toast.info("🧠 Mentor Senior sedang menganalisis pola gerakan sejenis...");
+    try {
+      const { generateReferenceContextWithAI } = await import('../services/geminiService');
+      const ref = await generateReferenceContextWithAI(
+        formValues.name,
+        formValues.goal,
+        formValues.location,
+        formValues.organization
+      );
+      setFormValues(prev => ({ ...prev, previous_context: ref }));
+      toast.success("✅ Referensi draf berhasil dirumuskan otomatis!");
+    } catch (err) {
+      toast.error("Gagal menjaring referensi rill.");
+    } finally {
+      setGeneratingReference(false);
+    }
+  };
 
   const [formValues, setFormValues] = React.useState({
     name: '',
@@ -85,6 +209,28 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
     if (mentorSuggestion) setMentorSuggestion(null);
   }, [formValues.goal, formValues.participants, formValues.location]);
 
+  // Load draft from localStorage on mount if there's no prefill
+  React.useEffect(() => {
+    if (!prefill) {
+      const savedDraft = localStorage.getItem('communityos_draft_form');
+      if (savedDraft) {
+        try {
+          const parsed = JSON.parse(savedDraft);
+          setFormValues(prev => ({ ...prev, ...parsed }));
+        } catch (e) {
+          console.error("Gagal memuat draf otomatis:", e);
+        }
+      }
+    }
+  }, [prefill]);
+
+  // Save current form values to localStorage as user types
+  React.useEffect(() => {
+    if (!loading && (formValues.name || formValues.organization || formValues.goal)) {
+      localStorage.setItem('communityos_draft_form', JSON.stringify(formValues));
+    }
+  }, [formValues, loading]);
+
   React.useEffect(() => {
     if (prefill) {
       setFormValues({
@@ -124,6 +270,9 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
     e.preventDefault();
     if (loading || cooldown > 0 || !isValid) return;
 
+    // Clear autosave cache upon successful submission
+    localStorage.removeItem('communityos_draft_form');
+
     onSubmit({
       name: formValues.name,
       organization: formValues.organization,
@@ -157,9 +306,17 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
       onSubmit={handleSubmit} 
       className="bg-white p-6 md:p-14 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 space-y-8 md:space-y-12 relative overflow-hidden"
     >
-      <div className="relative border-b border-slate-100 pb-6 md:pb-8">
-        <h2 className="text-lg md:text-2xl font-display font-black text-slate-800 mb-1">Rancang Kegiatan</h2>
-        <p className="text-[10px] md:text-sm text-slate-500 italic">"Lengkapi detail untuk blueprint yang personal."</p>
+      <div className="relative border-b border-slate-100 pb-6 md:pb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-lg md:text-2xl font-display font-black text-slate-800 mb-1">Rancang Kegiatan</h2>
+          <p className="text-[10px] md:text-sm text-slate-500 italic">"Lengkapi detail untuk blueprint yang personal."</p>
+        </div>
+        {(formValues.name || formValues.organization || formValues.goal) && (
+          <div className="self-start sm:self-center bg-teal-50 text-teal-700 border border-teal-100 rounded-full px-3 py-1.5 text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 animate-pulse shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+            Auto-Save Aktif ⚡
+          </div>
+        )}
       </div>
 
       <div className="space-y-6 md:space-y-10 relative">
@@ -248,6 +405,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
           <div>
             <label className={labelClass}>Lokasi / Kota</label>
             <input
+              id="event-location-input"
               type="text"
               className={inputClass('location')}
               placeholder="Contoh: Banjarmasin"
@@ -257,6 +415,18 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
               required
               disabled={loading || cooldown > 0}
             />
+            <div className="mt-2 ml-1">
+              <button
+                id="btn-detect-location"
+                type="button"
+                onClick={handleDetectLocation}
+                disabled={detectingLocation || loading}
+                className="inline-flex items-center gap-1.5 text-[10px] font-bold text-teal-600 hover:text-teal-700 transition-colors cursor-pointer bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 disabled:opacity-50"
+              >
+                <span className="text-teal-500 font-extrabold">📍</span>
+                {detectingLocation ? 'Mencari Jaringan...' : 'Deteksi Jaringan / GPS (Cepat)'}
+              </button>
+            </div>
             {touched.location && !validation.location && (
               <p className={errorClass}>Minimal 3 karakter untuk lokasi atau kota kegiatan 📍</p>
             )}
@@ -323,8 +493,93 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
             {touched.budget && !validation.budget && (
               <p className={errorClass}>Masukkan angka budget yang valid untuk strategi yang tepat 💰</p>
             )}
+            <div className="mt-2 ml-1">
+              <button
+                type="button"
+                onClick={handleSuggestBudget}
+                disabled={isCalculatingBudget || loading}
+                className="inline-flex items-center gap-1.5 text-[10px] font-bold text-teal-600 hover:text-teal-700 transition-colors cursor-pointer bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 disabled:opacity-50"
+              >
+                <Coins className="w-3 h-3" />
+                {isCalculatingBudget ? 'Mentor sedang berhitung...' : 'Bingung budget? Tanya Saran Mentor 💡'}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Panel Saran Budget Mentor */}
+        {budgetSuggestion && (
+          <div className="p-5 rounded-2xl bg-teal-50/30 border border-teal-100/80 space-y-3.5 animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-teal-100/50 pb-2">
+              <div className="flex items-center gap-2">
+                <Coins className="text-teal-600 w-4 h-4" />
+                <h4 className="text-xs font-bold text-teal-800">Rekomendasi Budget Mentor</h4>
+              </div>
+              <span className="text-[10px] font-semibold text-teal-600 px-2 py-0.5 rounded-full bg-teal-50 border border-teal-100">
+                Lokal Kontekstual ({formValues.location || 'Indonesia'})
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3.5 rounded-xl bg-white border border-teal-100/50">
+                <p className="text-[9px] font-bold text-slate-400 tracking-wider">BATAS HEMAT (MIN)</p>
+                <p className="text-sm font-black text-teal-700 mt-1">Rp {budgetSuggestion.min.toLocaleString('id-ID')}</p>
+              </div>
+              <div className="p-3.5 rounded-xl bg-white border border-teal-100/50">
+                <p className="text-[9px] font-bold text-slate-400 tracking-wider">BATAS NYAMAN (MAX)</p>
+                <p className="text-sm font-black text-indigo-700 mt-1">Rp {budgetSuggestion.max.toLocaleString('id-ID')}</p>
+              </div>
+            </div>
+
+            <p className="text-xs leading-relaxed text-slate-600 bg-white p-3.5 rounded-xl border border-teal-100/50 italic font-medium">
+              "{budgetSuggestion.notes}"
+            </p>
+
+            <div className="space-y-1.5">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pl-1">Estimasi Pos Alokasi Utama</p>
+              <div className="bg-white rounded-xl border border-teal-100/50 overflow-hidden divide-y divide-slate-50">
+                {budgetSuggestion.breakdowns.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-3 text-xs">
+                    <span className="font-semibold text-slate-700">{item.item}</span>
+                    <span className="font-bold text-teal-600">{item.cost}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1 justify-end">
+              <button
+                type="button"
+                onClick={() => setBudgetSuggestion(null)}
+                className="px-3 py-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Tutup Saran
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormValues({ ...formValues, budget: budgetSuggestion.min.toString() });
+                  setTouched({ ...touched, budget: true });
+                  setBudgetSuggestion(null);
+                }}
+                className="px-3 py-1.5 text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-xl hover:bg-teal-100 transition-all active:scale-95"
+              >
+                Gunakan Batas Hemat
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormValues({ ...formValues, budget: budgetSuggestion.max.toString() });
+                  setTouched({ ...touched, budget: true });
+                  setBudgetSuggestion(null);
+                }}
+                className="px-3 py-1.5 text-[10px] font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all active:scale-95"
+              >
+                Gunakan Batas Nyaman
+              </button>
+            </div>
+          </div>
+        )}
 
         <div>
           <label className={labelClass}>Tujuan Utama Kegiatan</label>
@@ -343,7 +598,29 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
         </div>
 
         <div>
-          <label className={labelClass}>Referensi atau kegiatan sebelumnya (opsional)</label>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+            <label className={labelClass + " !mb-0"}>Referensi atau kegiatan sebelumnya (opsional)</label>
+            <button
+              id="btn-auto-reference"
+              type="button"
+              onClick={handleAutoFillReference}
+              disabled={generatingReference || loading}
+              className="inline-flex items-center gap-1.5 self-start sm:self-auto bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 border border-indigo-100/60 px-2.5 py-1.5 rounded-lg text-[9px] font-black tracking-widest uppercase transition-all cursor-pointer disabled:opacity-50"
+              title="Isikan rekomendasi rujukan / pembanding kegiatan tahun lalu secara otomatis berbasis AI Mentor"
+            >
+              {generatingReference ? (
+                <>
+                  <div className="w-2.5 h-2.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <span>Menganalisis...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-2.5 h-2.5 text-indigo-500 animate-pulse" />
+                  <span>Rekomendasi Pola Mentor ⚡</span>
+                </>
+              )}
+            </button>
+          </div>
           <textarea
             className={`${inputClass('previous_context')} min-h-[80px] resize-none`}
             placeholder="Contoh: EduAction #1 dengan 60 peserta dan 12 panitia."
@@ -453,30 +730,55 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
             </p>
           </div>
           
-          <div
-            onClick={() => {
-              if (!isLoggedIn && onLoginRequest) {
-                onLoginRequest();
-              } else {
-                setMode('strategic');
-              }
-            }}
-            className={`flex-1 cursor-pointer flex flex-col items-start gap-2 p-5 rounded-2xl transition-all border ${
-              mode === 'strategic' 
-                ? 'bg-teal-50/50 border-teal-200 ring-4 ring-teal-500/5' 
-                : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] uppercase font-bold tracking-widest ${mode === 'strategic' ? 'text-teal-700' : 'text-slate-400'}`}>
-                {MODE_INFO.STRATEGIC.name}
-              </span>
-              {mode === 'strategic' && <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />}
+          {!isLoggedIn ? (
+            <div
+              className="flex-1 flex flex-col items-start gap-3 p-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">
+                  {MODE_INFO.STRATEGIC.name}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-200/60 text-slate-500 text-[8px] font-bold uppercase tracking-wider">
+                  <Lock className="w-2.5 h-2.5 text-slate-400" />
+                  Terkunci
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed text-slate-400">
+                Rapat Strategis memerlukan login Google untuk menyelaraskan analisis AI tingkat lanjut, mengoptimalkan draf mendalam, serta menjaga kualitas kuota server.
+              </p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onLoginRequest) onLoginRequest();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-[9px] font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95"
+              >
+                <span>Masuk dengan Google</span>
+              </button>
             </div>
-            <p className={`text-xs leading-relaxed ${mode === 'strategic' ? 'text-teal-600/80' : 'text-slate-400'}`}>
-              {MODE_INFO.STRATEGIC.desc}
-            </p>
-          </div>
+          ) : (
+            <div
+              onClick={() => {
+                setMode('strategic');
+              }}
+              className={`flex-1 cursor-pointer flex flex-col items-start gap-2 p-5 rounded-2xl transition-all border ${
+                mode === 'strategic' 
+                  ? 'bg-teal-50/50 border-teal-200 ring-4 ring-teal-500/5' 
+                  : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] uppercase font-bold tracking-widest ${mode === 'strategic' ? 'text-teal-700' : 'text-slate-400'}`}>
+                  {MODE_INFO.STRATEGIC.name}
+                </span>
+                {mode === 'strategic' && <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />}
+              </div>
+              <p className={`text-xs leading-relaxed ${mode === 'strategic' ? 'text-teal-600/80' : 'text-slate-400'}`}>
+                {MODE_INFO.STRATEGIC.desc}
+              </p>
+            </div>
+          )}
         </div>
 
         {mode === 'quick' ? (

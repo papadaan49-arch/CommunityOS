@@ -3,6 +3,8 @@ import {
   doc, 
   addDoc, 
   updateDoc, 
+  setDoc,
+  deleteDoc,
   getDoc, 
   getDocs, 
   query, 
@@ -23,6 +25,10 @@ export interface BlueprintDocument {
   isPublic: boolean;
   createdAt: any;
   updatedAt: any;
+  realizationStatus?: 'draft' | 'ready' | 'realized';
+  realizationDetails?: any;
+  rundownChecklist?: Record<string, boolean>;
+  rundownNotes?: Record<string, string>;
 }
 
 export interface BlueprintComment {
@@ -46,46 +52,110 @@ export interface OrganizationProfile {
   creatorIds: string[];
 }
 
-export const trackOrganizationGrowth = async (orgName: string, data: EventData) => {
-  if (!orgName) return;
-  
-  const orgId = orgName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  const orgRef = doc(db, 'organizations', orgId);
-
+export const recalculateAndSyncOrganizationStats = async () => {
+  if (!auth.currentUser) {
+    console.warn("Mencoba sinkronisasi statistik tanpa login. Operasi dibatalkan.");
+    return false;
+  }
   try {
-    const orgSnap = await getDoc(orgRef);
-    const userId = auth.currentUser?.uid;
+    // 1. Fetch all blueprints
+    const blueprintsSnap = await getDocs(collection(db, 'blueprints'));
+    const blueprints: BlueprintDocument[] = [];
+    blueprintsSnap.forEach((doc) => {
+      blueprints.push({ id: doc.id, ...doc.data() } as BlueprintDocument);
+    });
 
-    if (orgSnap.exists()) {
-      const current = orgSnap.data();
-      const updatedTypes = { ...current.eventTypes };
-      updatedTypes[data.type] = (updatedTypes[data.type] || 0) + 1;
+    // 2. Filter purely for realizationStatus === 'realized'
+    const realizedBlueprints = blueprints.filter(b => b.realizationStatus === 'realized');
 
-      await updateDoc(orgRef, {
-        totalEvents: current.totalEvents + 1,
-        totalParticipants: current.totalParticipants + data.participants,
-        totalBudget: current.totalBudget + data.budget,
-        eventTypes: updatedTypes,
-        locations: arrayUnion(data.location),
-        creatorIds: arrayUnion(userId),
+    // 3. Group and aggregate stats from realized events
+    const orgAggregates: Record<string, {
+      name: string;
+      totalEvents: number;
+      totalParticipants: number;
+      totalBudget: number;
+      eventTypes: Record<string, number>;
+      locations: Set<string>;
+      creatorIds: Set<string>;
+    }> = {};
+
+    for (const bp of realizedBlueprints) {
+      const orgName = bp.originalData?.organization;
+      if (!orgName) continue;
+
+      const orgId = orgName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      if (!orgId) continue;
+
+      if (!orgAggregates[orgId]) {
+        orgAggregates[orgId] = {
+          name: orgName,
+          totalEvents: 0,
+          totalParticipants: 0,
+          totalBudget: 0,
+          eventTypes: {},
+          locations: new Set<string>(),
+          creatorIds: new Set<string>(),
+        };
+      }
+
+      const agg = orgAggregates[orgId];
+      agg.totalEvents += 1;
+
+      // Purely rill actual feedback/participants if inputted by user, otherwise fallback to estimates safely
+      const actualPart = bp.realizationDetails?.actualParticipants !== undefined 
+        ? Number(bp.realizationDetails.actualParticipants) 
+        : Number(bp.originalData?.participants || 0);
+      agg.totalParticipants += actualPart;
+
+      agg.totalBudget += Number(bp.originalData?.budget || 0);
+
+      const type = bp.originalData?.type || 'Lainnya';
+      agg.eventTypes[type] = (agg.eventTypes[type] || 0) + 1;
+
+      if (bp.originalData?.location) {
+        agg.locations.add(bp.originalData.location);
+      }
+      if (bp.ownerId) {
+        agg.creatorIds.add(bp.ownerId);
+      }
+      if (bp.collaborators) {
+        bp.collaborators.forEach(c => agg.creatorIds.add(c));
+      }
+    }
+
+    // 4. Overwrite/Sync database collections
+    const orgsSnap = await getDocs(collection(db, 'organizations'));
+    const existingOrgIds = orgsSnap.docs.map(d => d.id);
+
+    // Save accurate, aggregated datasets
+    for (const [orgId, agg] of Object.entries(orgAggregates)) {
+      const orgRef = doc(db, 'organizations', orgId);
+      await setDoc(orgRef, {
+        name: agg.name,
+        totalEvents: agg.totalEvents,
+        totalParticipants: agg.totalParticipants,
+        totalBudget: agg.totalBudget,
+        eventTypes: agg.eventTypes,
+        locations: Array.from(agg.locations),
+        creatorIds: Array.from(agg.creatorIds),
         lastActive: serverTimestamp()
       });
-    } else {
-      await import('firebase/firestore').then(async ({ setDoc }) => {
-        await setDoc(orgRef, {
-          name: orgName,
-          totalEvents: 1,
-          totalParticipants: data.participants,
-          totalBudget: data.budget,
-          eventTypes: { [data.type]: 1 },
-          locations: [data.location],
-          creatorIds: userId ? [userId] : [],
-          lastActive: serverTimestamp()
-        });
-      });
     }
+
+    // Delete orphaned or outdated empty organizations in database
+    const activeOrgIds = Object.keys(orgAggregates);
+    for (const existingId of existingOrgIds) {
+      if (!activeOrgIds.includes(existingId)) {
+        const orgRef = doc(db, 'organizations', existingId);
+        await deleteDoc(orgRef);
+      }
+    }
+
+    console.log("Database self-healing & statistics sync complete!");
+    return true;
   } catch (error) {
-    console.error("Failed to track organization growth:", error);
+    console.error("Gagal melakukan pencocokan statistik organisasi:", error);
+    return false;
   }
 };
 
@@ -99,12 +169,10 @@ export const saveBlueprintToCloud = async (data: Blueprint, originalData: EventD
       ownerId: auth.currentUser.uid,
       collaborators: [],
       isPublic: false,
+      realizationStatus: 'draft',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-
-    // Track growth
-    await trackOrganizationGrowth(originalData.organization, originalData);
 
     return docRef.id;
   } catch (error) {
@@ -123,6 +191,43 @@ export const updateBlueprintInCloud = async (blueprintId: string, data: Blueprin
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `blueprints/${blueprintId}`);
+  }
+};
+
+export const updateBlueprintRealizationStatus = async (
+  blueprintId: string, 
+  status: 'draft' | 'ready' | 'realized', 
+  details?: {
+    actualParticipants?: number;
+    actualStaff?: number;
+    actualComplexityScore?: number;
+    fieldNotes?: string;
+    completedAt?: any;
+  },
+  originalData?: EventData
+) => {
+  try {
+    const docRef = doc(db, 'blueprints', blueprintId);
+    const updatePayload: any = {
+      realizationStatus: status,
+      updatedAt: serverTimestamp(),
+    };
+    if (details) {
+      updatePayload.realizationDetails = details;
+    } else if (status === 'draft') {
+      // Clear realization details if moved back to draft or edit
+      const { deleteField } = await import('firebase/firestore');
+      updatePayload.realizationDetails = deleteField();
+    }
+    await updateDoc(docRef, updatePayload);
+    
+    // Automatically trigger perfect self-healing dynamic statistics recalculation
+    await recalculateAndSyncOrganizationStats();
+    
+    return true;
+  } catch (error) {
+    console.error("Gagal memperbarui status realisasi:", error);
+    return false;
   }
 };
 
@@ -237,11 +342,26 @@ export const updateAppSetting = async (key: string, value: any) => {
 export const getOrgProfiles = async (): Promise<OrganizationProfile[]> => {
   if (!auth.currentUser) return [];
   try {
+    // Automatically recalculate and sync accurate stats on fetching
+    await recalculateAndSyncOrganizationStats();
     const q = query(collection(db, 'organizations'), where('creatorIds', 'array-contains', auth.currentUser.uid));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as OrganizationProfile));
   } catch (error) {
     console.error("Failed to fetch org profiles:", error);
+    return [];
+  }
+};
+
+export const getAllOrgProfiles = async (): Promise<OrganizationProfile[]> => {
+  try {
+    // Automatically recalculate and sync accurate stats on fetching
+    await recalculateAndSyncOrganizationStats();
+    const q = query(collection(db, 'organizations'));
+    const snap = await getDocs(q);
+    return snap.docs.map( d => ({ id: d.id, ...d.data() } as OrganizationProfile));
+  } catch (error) {
+    console.error("Failed to fetch all org profiles:", error);
     return [];
   }
 };
@@ -277,3 +397,35 @@ export const postComment = async (blueprintId: string, text: string) => {
     handleFirestoreError(error, OperationType.CREATE, `blueprints/${blueprintId}/comments`);
   }
 };
+
+export const updateBlueprintRundownProgress = async (
+  blueprintId: string,
+  rundownChecklist: Record<string, boolean> | Record<number, boolean>,
+  rundownNotes: Record<string, string> | Record<number, string>
+) => {
+  try {
+    const docRef = doc(db, 'blueprints', blueprintId);
+    
+    // Konversi key integer/string agar kompatibel sempurna dengan Firestore
+    const cleanChecklist: Record<string, boolean> = {};
+    Object.entries(rundownChecklist).forEach(([k, v]) => {
+      cleanChecklist[String(k)] = !!v;
+    });
+
+    const cleanNotes: Record<string, string> = {};
+    Object.entries(rundownNotes).forEach(([k, v]) => {
+      cleanNotes[String(k)] = String(v);
+    });
+
+    await updateDoc(docRef, {
+      rundownChecklist: cleanChecklist,
+      rundownNotes: cleanNotes,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `blueprints/${blueprintId}`);
+    return false;
+  }
+};
+

@@ -1,0 +1,24 @@
+{
+  "short_name": "CommunityOS",
+  "name": "CommunityOS — AI Operating System for Communities",
+  "description": "Platform operasi AI ramah untuk membantu komunitas di Indonesia mengelola kegiatan dengan cerdas: mulai dari rancangan blueprint taktis secara instan, penyederhanaan manajemen operasional lapangan, hingga sistem penjagaan khusus untuk menjaga wellbeing energi tim relawan Anda.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#0d9488",
+  "display": "standalone",
+  "orientation": "portrait"
+}

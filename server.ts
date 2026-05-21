@@ -120,6 +120,32 @@ async function startServer() {
     });
   });
 
+  app.post("/api/save-og-image", (req, res) => {
+    try {
+      const { image } = req.body;
+      if (!image || !image.startsWith("data:image/png;base64,")) {
+        return res.status(400).json({ error: "Format gambar tidak valid." });
+      }
+      const base64Data = image.replace(/^data:image\/png;base64,/, "");
+      const publicPath = path.join(process.cwd(), "public", "og-image.png");
+      const distPath = path.join(process.cwd(), "dist", "og-image.png");
+      
+      // Simpan ke folder public utama
+      fs.writeFileSync(publicPath, base64Data, "base64");
+      
+      // Simpan juga ke dist jika folder bundelan produksi sudah ada agar langsung terbaca di preview
+      if (fs.existsSync(path.join(process.cwd(), "dist"))) {
+        fs.writeFileSync(distPath, base64Data, "base64");
+      }
+      
+      console.log("[SERVER] Sukses menyimpan og-image.png baru.");
+      res.json({ success: true, message: "og-image.png berhasil diperbarui secara otomatis ke folder publik." });
+    } catch (error: any) {
+      console.error("[SERVER] Gagal menyimpan og-image.png:", error);
+      res.status(500).json({ error: "Gagal menyimpan file gambar di server." });
+    }
+  });
+
   app.post("/api/ai/generate", async (req, res) => {
     try {
       const { model, contents, config } = req.body;

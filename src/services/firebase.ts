@@ -5,9 +5,9 @@ import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
+export const db = (firebaseConfig as any).firestoreDatabaseId 
+  ? initializeFirestore(app, { experimentalForceLongPolling: true }, (firebaseConfig as any).firestoreDatabaseId)
+  : initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -21,7 +21,9 @@ export const loginWithGoogle = async () => {
   }
 };
 
-export const logout = () => signOut(auth);
+export const logout = async () => {
+  await signOut(auth);
+};
 
 export async function testConnection() {
   try {

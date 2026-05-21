@@ -10,7 +10,7 @@ import { DonationModal } from './components/DonationModal';
 import { CreatorProfile } from './components/CreatorProfile';
 import { generateBlueprint, validateInputWithAI, refineBlueprint } from './services/geminiService';
 import { saveBlueprintToHistory, HistoryItem, clearHistory as clearLocalHistory, clearSessionCache } from './services/storageService';
-import { saveBlueprintToCloud, getBlueprintFromCloud, updateBlueprintInCloud } from './services/dbService';
+import { saveBlueprintToCloud, getBlueprintFromCloud, updateBlueprintInCloud, getAppSetting, updateBlueprintRealizationStatus } from './services/dbService';
 import { auth, loginWithGoogle, logout } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { Blueprint, EventData } from './types';
@@ -21,14 +21,41 @@ import { Toaster, toast } from 'sonner';
 export default function App() {
   const [blueprint, setBlueprint] = React.useState<Blueprint | null>(null);
   const [currentBlueprintId, setCurrentBlueprintId] = React.useState<string | null>(null);
+  const [realizationStatus, setRealizationStatus] = React.useState<'draft' | 'ready' | 'realized'>('draft');
+  const [realizationDetails, setRealizationDetails] = React.useState<any>(null);
+  const [rundownChecklist, setRundownChecklist] = React.useState<Record<string, boolean>>({});
+  const [rundownNotes, setRundownNotes] = React.useState<Record<string, string>>({});
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = React.useState(0);
   const [loadingMessageIndex, setLoadingMessageIndex] = React.useState(0);
   const [prefillData, setPrefillData] = React.useState<EventData | null>(null);
   const [currentEventData, setCurrentEventData] = React.useState<EventData | null>(null);
-  const [user, setUser] = React.useState<User | null>(null);
+   const [user, setUser] = React.useState<User | null>(null);
   const [isDonationOpen, setIsDonationOpen] = React.useState(false);
+  const [broadcast, setBroadcast] = React.useState<string | null>(null);
+  const [isBroadcastDismissed, setIsBroadcastDismissed] = React.useState(false);
+  const [appVersion, setAppVersion] = React.useState<string>('Beta');
+
+  React.useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const [msg, version] = await Promise.all([
+          getAppSetting('community_broadcast'),
+          getAppSetting('app_version')
+        ]);
+        if (msg) {
+          setBroadcast(msg);
+        }
+        if (version) {
+          setAppVersion(version);
+        }
+      } catch (err) {
+        console.error("Failed to fetch settings", err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -74,6 +101,10 @@ export default function App() {
         setBlueprint(doc.data);
         setCurrentEventData(doc.originalData);
         setCurrentBlueprintId(doc.id);
+        setRealizationStatus(doc.realizationStatus || 'draft');
+        setRealizationDetails(doc.realizationDetails || null);
+        setRundownChecklist(doc.rundownChecklist || {});
+        setRundownNotes(doc.rundownNotes || {});
       } else {
         setError("Blueprint tidak ditemukan atau Anda tidak memiliki akses.");
       }
@@ -118,6 +149,8 @@ export default function App() {
   const handleGenerate = async (data: EventData & { mode?: 'quick' | 'strategic' }) => {
     setLoading(true);
     setError(null);
+    setRealizationStatus('draft');
+    setRealizationDetails(null);
     setCurrentEventData(data);
     try {
       // Step 1: AI Sanity Check
@@ -216,11 +249,30 @@ export default function App() {
     }
   };
 
-  const handleHistorySelect = (item: HistoryItem) => {
+  const handleHistorySelect = async (item: HistoryItem) => {
     setBlueprint(item.data);
     setCurrentEventData(item.originalData || null);
     setPrefillData(item.originalData || null);
     setCurrentBlueprintId(item.cloudId || null);
+    setRealizationStatus('draft');
+    setRealizationDetails(null);
+    setRundownChecklist({});
+    setRundownNotes({});
+    
+    // If it has cloud ID, load its real-time status dynamically
+    if (item.cloudId) {
+      try {
+        const doc = await getBlueprintFromCloud(item.cloudId);
+        if (doc) {
+          setRealizationStatus(doc.realizationStatus || 'draft');
+          setRealizationDetails(doc.realizationDetails || null);
+          setRundownChecklist(doc.rundownChecklist || {});
+          setRundownNotes(doc.rundownNotes || {});
+        }
+      } catch (err) {
+        console.error("Failed to fetch cloud status for history item", err);
+      }
+    }
     
     // Update URL
     const newUrl = new URL(window.location.href);
@@ -245,6 +297,10 @@ export default function App() {
   const handleRevision = () => {
     setBlueprint(null);
     setCurrentBlueprintId(null);
+    setRealizationStatus('draft');
+    setRealizationDetails(null);
+    setRundownChecklist({});
+    setRundownNotes({});
     // Clear ID from URL
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.delete('id');
@@ -283,7 +339,7 @@ export default function App() {
       <Toaster position="top-center" expand={false} richColors />
       {/* Global Header */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 md:px-6 py-3 md:py-4">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -292,7 +348,9 @@ export default function App() {
             <BrandLogo size="xs md:sm" />
             <div className="flex flex-col">
               <span className="text-xs md:text-sm font-display font-bold text-slate-900 leading-tight">CommunityOS</span>
-              <span className="text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest">AI OS Ver. 1</span>
+              <span className="text-[7px] md:text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                {appVersion.toLowerCase() === 'beta' ? 'AI OS Beta' : `AI OS Ver. ${appVersion}`}
+              </span>
             </div>
           </motion.div>
           
@@ -364,7 +422,31 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="max-w-2xl mx-auto content-padding pt-8 md:pt-20 pb-20 md:pb-32">
+      {/* Broadcast Banner */}
+      {broadcast && !isBroadcastDismissed && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-teal-50 border-b border-teal-100 px-4 py-3 text-slate-700"
+        >
+          <div className="max-w-4xl mx-auto flex items-start sm:items-center justify-between gap-3 text-left">
+            <div className="flex gap-2.5 items-start">
+              <span className="text-sm select-none">📢</span>
+              <p className="text-xs font-semibold leading-relaxed text-slate-700">
+                {broadcast}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsBroadcastDismissed(true)}
+              className="text-[10px] font-bold uppercase tracking-wider text-teal-600 hover:text-teal-800 transition-colors pr-1 self-start sm:self-center"
+            >
+              Tutup
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      <main className="max-w-4xl mx-auto content-padding pt-8 md:pt-16 pb-20 md:pb-32">
         <AnimatePresence mode="wait">
           {loading ? (
             <motion.div
@@ -458,6 +540,15 @@ export default function App() {
                 blueprint={blueprint} 
                 blueprintId={currentBlueprintId}
                 userEmail={user?.email}
+                initialRealizationStatus={realizationStatus}
+                initialRealizationDetails={realizationDetails}
+                initialRundownChecklist={rundownChecklist}
+                initialRundownNotes={rundownNotes}
+                originalEventData={currentEventData}
+                onUpdateRealizationStatus={(status, details) => {
+                  setRealizationStatus(status);
+                  if (details) setRealizationDetails(details);
+                }}
                 onRevision={handleRevision} 
                 onRefine={handleRefine}
               />

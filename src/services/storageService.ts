@@ -16,15 +16,19 @@ export interface HistoryItem {
 
 export const saveBlueprintToHistory = (blueprint: Blueprint, originalData?: any, cloudId?: string | null) => {
   try {
+    if (!blueprint) {
+      console.warn('saveBlueprintToHistory got undefined blueprint');
+      return;
+    }
     const historyJson = localStorage.getItem(STORAGE_KEY);
     let history: HistoryItem[] = historyJson ? JSON.parse(historyJson) : [];
 
     const newItem: HistoryItem = {
       id: crypto.randomUUID(),
       cloudId,
-      title: blueprint.event_meta.title,
-      city: blueprint.event_meta.location,
-      scale: blueprint.event_meta.scale_classification,
+      title: blueprint.event_meta?.title || "Kegiatan Tanpa Nama",
+      city: blueprint.event_meta?.location || "Indonesia",
+      scale: blueprint.event_meta?.scale_classification || "Community Scale",
       timestamp: Date.now(),
       data: blueprint,
       originalData

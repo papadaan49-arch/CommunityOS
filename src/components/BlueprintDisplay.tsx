@@ -101,8 +101,9 @@ export const BlueprintDisplay: React.FC<Props> = ({
   const [driveFileLink, setDriveFileLink] = React.useState<string | null>(null);
   const [driveFileName, setDriveFileName] = React.useState<string | null>(null);
   const [isCreatingForm, setIsCreatingForm] = React.useState(false);
-  const [formTypeActive, setFormTypeActive] = React.useState<'registrasi' | 'feedback' | null>(null);
+  const [formTypeActive, setFormTypeActive] = React.useState<'registrasi' | 'feedback'>('registrasi');
   const [googleFormResult, setGoogleFormResult] = React.useState<{ responderUri: string; editUri: string } | null>(null);
+  const [copiedFormFields, setCopiedFormFields] = React.useState<Record<string, boolean>>({});
   const [workspaceError, setWorkspaceError] = React.useState<string | null>(null);
 
   // WhatsApp Jarkom states
@@ -198,6 +199,116 @@ Jaga stamina dan selamat beristirahat dengan tenang. Sampai berjumpa di kolabora
 
 Salam hangat & gotong-royong,
 *${orgName}*`;
+    }
+  };
+
+  const getCustomFormFields = (type: 'registrasi' | 'feedback') => {
+    const orgName = originalEventData?.organization || "Komunitas Kita";
+    const eventName = blueprint?.event_meta?.title || "Kegiatan Hangat";
+    const scale = blueprint?.event_meta?.scale_classification || "Community Scale";
+    
+    if (type === 'registrasi') {
+      return [
+        {
+          id: 'reg_nama',
+          title: 'Nama Lengkap (atau Panggilan Akrab)',
+          type: 'Jawaban Singkat (Short Answer)',
+          required: 'Ya',
+          description: `Sapaan hangat yang ingin Anda gunakan saat berkoordinasi lapangan di agenda "${eventName}". Kami mengutamakan budaya keakraban gotong-royong.`,
+          options: []
+        },
+        {
+          id: 'reg_wa',
+          title: 'Nomor WhatsApp Aktif / Kontak Darurat',
+          type: 'Jawaban Singkat (Short Answer)',
+          required: 'Ya',
+          description: 'Digunakan hanya untuk koordinasi pembagian shift relawan dan grup koordinasi lapangan.',
+          options: []
+        },
+        {
+          id: 'reg_shift',
+          title: 'Pilihan Alokasi Peran & Divisi Kerja Lapangan (Sesuai Minat & Energi)',
+          type: 'Kotak Centang (Checkboxes) - Bisa pilih lebih dari 1',
+          required: 'Ya',
+          description: `Untuk agenda berskala ${scale} ini, panitia bekerja secara shift manusiawi (maksimal 4 jam per shift) demi mencegah burnout. Pilih peran yang paling Anda minati:`,
+          options: [
+            '👥 Divisi Hubungan Masyarakat & Interaksi Warga (Mendampingi para hadirin secara santun)',
+            '🍱 Divisi Logistik Selesa & Konsumsi (Menjaga energi, air minum, hidrasi, & stamina rekan-rekan)',
+            '📸 Divisi Dokumentasi & Storytelling Kreatif (Fokus merekam kehangatan & senyum tanpa rekayasa)',
+            '🧘 Divisi Wellbeing Guard & K3 (Membantu mengawasi sirkulasi istirahat panitia dari kelelahan)'
+          ]
+        },
+        {
+          id: 'reg_wellbeing',
+          title: 'Apakah Anda bersedia berkomitmen tulus meredam ego & saling merangkul di lapangan?',
+          type: 'Pilihan Ganda (Multiple Choice)',
+          required: 'Ya',
+          description: 'Bagi kami di CommunityOS Indonesia, solidaritas & kesehatan setiap individu tim jauh lebih penting daripada kesempurnaan acara.',
+          options: [
+            'Ya, saya sangat setuju mengutamakan kesehatan fisik & solidaritas kelompok.',
+            'Tentu, saya siap menjaga batasan energi & saling mendukung demi Zero-Burnout!'
+          ]
+        },
+        {
+          id: 'reg_kesehatan',
+          title: 'Informasi Riwayat Kesehatan Khusus / Alergi Makanan pendukung',
+          type: 'Paragraf (Paragraph)',
+          required: 'Tidak',
+          description: 'Bantu kami menjaga Anda. Beritahu kami jika memiliki riwayat kesehatan khusus (misal asma, alergi telur, atau batasan fisik tertentu).',
+          options: []
+        }
+      ];
+    } else {
+      return [
+        {
+          id: 'feed_nama',
+          title: 'Nama Penggerak / Anggota Tim (Opsional)',
+          type: 'Jawaban Singkat (Short Answer)',
+          required: 'Tidak',
+          description: 'Sebutkan nama Anda atau biarkan kosong jika Anda ingin menyampaikan masukan krusial secara aman & anonim.',
+          options: []
+        },
+        {
+          id: 'feed_stamina',
+          title: 'Skala Degradasi Stamina & Kelelahan Fisik Pasca Agenda Selesai',
+          type: 'Skala Linear (Linear Scale) 1 - 5',
+          required: 'Ya',
+          description: 'Evaluasi nyata rasa lelah Anda. (1 = Sangat Bugur & Bertenaga, 5 = Mengalami Kelelahan Ekstrem/Butuh Cuti Komunitas).',
+          options: ['1 - Luar biasa segar', '2 - Lelah normal wajar', '3 - Cukup letih', '4 - Capek sekali', '5 - Burnout / Habis energi total']
+        },
+        {
+          id: 'feed_logistik',
+          title: 'Kualitas Dukungan Nutrisi & Hidrasi Selama Bertugas',
+          type: 'Pilihan Ganda (Multiple Choice)',
+          required: 'Ya',
+          description: 'Apakah asupan makanan gizi, snack ringan, dan ketersediaan air bersih di posko mencukupi?',
+          options: [
+            'Luar Biasa (Kenyang melimpah, hidrasi sangat aman)',
+            'Cukup (Logistik tersedia walau sempat ada keterlambatan)',
+            'Kurang Terurus (Sempat kehausan / porsi snack sangat minim)'
+          ]
+        },
+        {
+          id: 'feed_beban',
+          title: 'Apakah pembagian tugas di dalam tim Anda dirasa adil dan bebas stres?',
+          type: 'Pilihan Ganda (Multiple Choice)',
+          required: 'Ya',
+          description: 'Evaluasi beban kerja untuk menjadi bahan koreksi pengelola di masa depan.',
+          options: [
+            'Sangat Adil & Manusiawi (Shift berjalan tepat waktu & beban pas)',
+            'Cukup Adil (Beban kerja wajar, namun koordinasi grup agak bising)',
+            'Mengeksploitasi (Pekerjaan menumpuk di 1-2 relawan saja, kekurangan orang)'
+          ]
+        },
+        {
+          id: 'feed_cerita',
+          title: 'Cerita/Momen Terhangat yang Menumbuhkan Jiwa Gotong-Royong Anda',
+          type: 'Paragraf (Paragraph)',
+          required: 'Tidak',
+          description: 'Bagikan tawa riang atau cerita berharga saat bersentuhan langsung dengan warga atau rekan relawan.',
+          options: []
+        }
+      ];
     }
   };
 
@@ -2394,8 +2505,8 @@ _${blueprint.outreach.ig_caption}_
                       <Cloud className="w-6 h-6 md:w-7 md:h-7 text-indigo-600" />
                     </div>
                     <div>
-                      <h2 className="text-xl md:text-2xl font-display font-semibold text-slate-800">Ekspor &amp; Form Taktis</h2>
-                      <p className="text-xs text-slate-400 font-medium">Ekspor draf kegiatan Anda secara instan atau simulasikan draf Google Form pendaftaran relawan &amp; kuesioner evaluasi secara bebas.</p>
+                      <h2 className="text-xl md:text-2xl font-display font-semibold text-slate-800">Workspace &amp; Formulir Taktis</h2>
+                      <p className="text-xs text-slate-400 font-medium">Salin draf kuesioner Google Form ideal rancangan AI secara aman, efisien, dan selaras dengan prinsip kesejahteraan (Wellbeing Guard) komunitas.</p>
                     </div>
                   </div>
                   
@@ -2403,211 +2514,260 @@ _${blueprint.outreach.ig_caption}_
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-3 bg-teal-50 px-4 py-2 rounded-2xl border border-teal-100">
                       <div className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse" />
-                      <span className="text-xs font-bold text-teal-700 tracking-wide uppercase">Mode Taktis (Bebas Login)</span>
+                      <span className="text-xs font-bold text-teal-700 tracking-wide uppercase">Dapur Taktis Aktif</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-12">
-                  {/* TWO EXCITING DIGITAL TOOLS CARD SECTIONS */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                    
-                    {/* TOOL 1: DRIVE EXPORT CARD */}
-                    <div className="relative group/tool bg-slate-50/30 p-8 rounded-[2rem] border border-slate-100 space-y-6 flex flex-col justify-between hover:border-teal-200/50 hover:bg-slate-50/50 transition-all shadow-inner">
-                      <div className="space-y-4">
-                        <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600 group-hover/tool:scale-105 transition-all">
-                          <HardDrive className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <h3 className="text-base font-bold text-slate-800">Simpan Draf Blueprint Offline</h3>
-                          <p className="text-xs text-slate-500 leading-relaxed font-medium mt-1">Unduh berkas draf blueprint operasional terlengkap ke dalam file berformat Markdown (.md) yang ramah dibaca, disunting, dan dibagikan secara instan ke anggota tim.</p>
-                        </div>
+                <div className="space-y-10">
+                  {/* METRIC / OFF-LINE EXPORTER CARDS */}
+                  <div className="bg-slate-50/50 p-6 md:p-8 rounded-[2rem] border border-slate-100/80 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-inner">
+                    <div className="space-y-2 max-w-xl text-left">
+                      <div className="flex items-center gap-2 text-teal-700">
+                        <HardDrive className="w-5 h-5" />
+                        <h3 className="text-sm font-bold uppercase tracking-wider">Simpan Draf Blueprint Offline</h3>
                       </div>
-
-                      <div className="space-y-4 pt-4">
-                        {driveFileLink ? (
-                          <div className="p-4 bg-teal-50 border border-teal-100 rounded-xl space-y-2">
-                            <p className="text-[10px] font-extrabold text-teal-700 uppercase tracking-widest flex items-center gap-1">
-                              <CheckSquare className="w-3.5 h-3.5" /> Berhasil Diunduh!
-                            </p>
-                            <p className="text-xs text-slate-600 font-bold truncate">{driveFileName}</p>
-                            <p className="text-[10px] text-teal-600 font-medium font-mono">Berkas diunduh secara lokal!</p>
-                          </div>
-                        ) : null}
-
-                        <button
-                          onClick={handleExportToDrive}
-                          disabled={isExportingToDrive}
-                          className={`w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                            isExportingToDrive
-                              ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
-                              : 'bg-teal-600 border-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-50 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer'
-                          }`}
-                        >
-                          {isExportingToDrive ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin text-white" />
-                              <span>Mengunduh Blueprint...</span>
-                            </>
-                          ) : (
-                            <>
-                              <SendHorizontal className="w-4 h-4" />
-                              <span>Unduh File Markdown Blueprint</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed font-semibold">
+                        Unduh salinan berkas draf blueprint operasional terstruktur di atas ke dalam file berformat Markdown (.md). Sangat ramah dibahas saat rapat kilat bersama koordinator, disunting ulang, dan disimpan.
+                      </p>
                     </div>
 
-                    {/* TOOL 2: FORMS CREATION CARD */}
-                    <div className="relative group/tool bg-slate-50/30 p-8 rounded-[2rem] border border-slate-100 space-y-6 flex flex-col justify-between hover:border-indigo-200/50 hover:bg-slate-50/50 transition-all shadow-inner">
-                      <div className="space-y-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover/tool:scale-105 transition-all">
-                          <ListPlus className="w-6 h-6" />
+                    <div className="min-w-[200px]">
+                      {driveFileLink ? (
+                        <div className="p-3 bg-teal-50 text-teal-800 rounded-xl space-y-1 border border-teal-100 text-left mb-3">
+                          <p className="text-[9px] font-extrabold uppercase tracking-widest flex items-center gap-1">
+                            <CheckSquare className="w-3 h-3" /> Berhasil Tersimpan!
+                          </p>
+                          <p className="text-[10px] font-bold truncate max-w-[180px]">{driveFileName}</p>
                         </div>
-                        <div>
-                          <h3 className="text-base font-bold text-slate-800">Simulator Google Forms</h3>
-                          <p className="text-xs text-slate-500 leading-relaxed font-medium mt-1">Rancang draf kuesioner digital Anda secara real-time untuk modul registrasi pendaftaran relawan atau instrumen umpan balik evaluasi kesehatan tim.</p>
-                        </div>
-                      </div>
+                      ) : null}
 
-                      <div className="space-y-4 pt-4">
-                        {googleFormResult ? (
-                          <div className="p-4 bg-indigo-50/80 border border-indigo-100 rounded-xl space-y-3">
-                            <p className="text-[10px] font-extrabold text-indigo-700 uppercase tracking-widest flex items-center gap-1">
-                              <CheckSquare className="w-3.5 h-3.5" /> Berhasil Dirancang!
-                            </p>
-                            <div className="flex flex-col gap-2">
-                              <p className="text-[10px] text-indigo-600 font-semibold leading-relaxed">Mode Taktis Simulator Aktif di panel bawah! Cobalah lakukan simulasi pengisian data Form secara interaktif di halaman ini.</p>
-                            </div>
-                          </div>
-                        ) : null}
-
-                        <div className="grid grid-cols-1 gap-2.5">
-                          <button
-                            onClick={() => handleCreateGoogleForm('registrasi')}
-                            disabled={isCreatingForm}
-                            className={`w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
-                              isCreatingForm && formTypeActive === 'registrasi'
-                                ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
-                                : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm'
-                            }`}
-                          >
-                            {isCreatingForm && formTypeActive === 'registrasi' ? (
-                              <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                <span>Merancang Form...</span>
-                              </>
-                            ) : (
-                              <span>📝 Rancang Simulator Form Pendaftaran</span>
-                            )}
-                          </button>
-
-                          <button
-                            onClick={() => handleCreateGoogleForm('feedback')}
-                            disabled={isCreatingForm}
-                            className={`w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
-                              isCreatingForm && formTypeActive === 'feedback'
-                                ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
-                                : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm'
-                            }`}
-                          >
-                            {isCreatingForm && formTypeActive === 'feedback' ? (
-                              <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                <span>Merancang Form...</span>
-                              </>
-                            ) : (
-                              <span>📊 Rancang Simulator Form Feedback Evaluasi</span>
-                            )}
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        onClick={handleExportToDrive}
+                        disabled={isExportingToDrive}
+                        className={`w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
+                          isExportingToDrive
+                            ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
+                            : 'bg-teal-600 border-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-50 hover:-translate-y-0.5 active:translate-y-0'
+                        }`}
+                      >
+                        {isExportingToDrive ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                            <span>Mengunduh...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FileDown className="w-4 h-4" />
+                            <span>Download Markdown Blueprint</span>
+                          </>
+                        )}
+                      </button>
                     </div>
-
                   </div>
 
-                  {/* FORM SIMULATOR INTERACTIVE WIDGET */}
-                  {googleFormResult && googleFormResult.responderUri.startsWith('#') && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-6 sm:p-10 bg-indigo-50/30 rounded-[2.5rem] border border-indigo-100/50 space-y-6 mt-8"
-                    >
-                      <div className="flex items-center justify-between border-b border-indigo-100/50 pb-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl animate-bounce">⚡</span>
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-800">Simulator Google Form Real-Time</h4>
-                            <p className="text-[10px] font-semibold text-indigo-600">Simulasi Taktis Pengisian Google Form Acara Anda</p>
-                          </div>
-                        </div>
-                        <span className="text-[9px] font-extrabold uppercase px-2.5 py-1 tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full">Simulator Aktif</span>
+                  {/* GOOGLE FORM BUILDER INTRODUCTION & WORKFLOW TUTORIAL */}
+                  <div className="space-y-8">
+                    <div className="space-y-2 text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">📋</span>
+                        <h3 className="text-base font-bold text-slate-800">Draf Struktur Google Form Paling Ideal (Salin 1-Per-1)</h3>
                       </div>
+                      <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                        Kami merancang draf isian formulir terbaik berbasis prinsip kemanusiaan & gotong-royong. Anda tidak dibatasi oleh integrasi API ataupun kolom data. Cukup gunakan alur kerja efisien di bawah ini untuk menyusun Google Forms Anda sendiri dalam hitungan menit!
+                      </p>
+                    </div>
 
-                      <div className="space-y-4 bg-white p-6 sm:p-8 rounded-[1.8rem] border border-indigo-50 shadow-sm">
-                        <div className="space-y-2 border-b border-slate-100 pb-4">
-                          <h5 className="text-sm font-bold text-slate-800">
-                            {formTypeActive === 'registrasi' ? `Form Registrasi Relawan: ${blueprint.event_meta.title}` : `Formulir Masukan: ${blueprint.event_meta.title}`}
-                          </h5>
-                          <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                            {formTypeActive === 'registrasi' ? 'Mohon lengkapi detail data pendaftaran relawan di bawah ini untuk memulai agenda aksi lapangan Anda.' : 'Kirim draf masukan & saran setelah acara berlangsung guna keberlanjutan regenerasi penggerak.'}
-                          </p>
-                        </div>
+                    <div className="bg-amber-50/65 p-5 sm:p-6 rounded-2xl border border-amber-250/50 space-y-3 text-left">
+                      <h4 className="text-xs font-bold text-amber-800 flex items-center gap-2">
+                        <span className="text-sm">💡</span> Trik Taktis Pengisian Google Form Super Cepat:
+                      </h4>
+                      <ol className="text-[11px] font-medium text-amber-700 space-y-2 list-decimal list-inside leading-relaxed">
+                        <li>Buka Google Forms di tab baru (<a href="https://docs.google.com/forms" target="_blank" rel="noreferrer" className="underline font-bold hover:text-amber-900 cursor-pointer">docs.google.com/forms</a>).</li>
+                        <li>Pilih draf formulir di bawah ini <strong>(Form Pendaftaran atau Form Evaluasi)</strong>.</li>
+                        <li>Klik <span className="underline italic">"Salin Judul"</span> atau <span className="underline italic">"Salin Deskripsi"</span> lalu tempel (paste) langsung ke lembar kerja Google Forms Anda.</li>
+                        <li><strong>Fitur Hemat Waktu:</strong> Untuk pilihan ganda, cukup klik tombol <span className="bg-amber-100/80 text-amber-900 px-1.5 py-0.5 rounded font-bold">Salin Semua Opsi (Multi-Line)</span> dan tempelkan (paste) di baris isian Option 1 Google Forms Anda. Sistem Google Forms akan otomatis memecah isian tersebut menjadi pilihan ganda yang rapi!</li>
+                        <li>Centang tombol <span className="italic">"Tersalin"</span> di samping kiri untuk memantau pengerjaan Anda agar tidak ada kolom yang terlewat.</li>
+                      </ol>
+                    </div>
 
-                        {formTypeActive === 'registrasi' ? (
-                          <div className="space-y-4">
-                            <div className="space-y-1 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                              <label className="text-[11px] font-bold text-slate-700">Nama Lengkap *</label>
-                              <input type="text" placeholder="Contoh: Budi Santoso" className="w-full text-xs px-4 py-2 bg-white border border-slate-200 rounded-lg mt-1" />
+                    {/* SELECTOR FOR ACTIVE FORM TYPE */}
+                    <div className="flex border-b border-slate-150">
+                      <button
+                        onClick={() => setFormTypeActive('registrasi')}
+                        className={`px-6 py-3.5 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${
+                          formTypeActive === 'registrasi'
+                            ? 'text-indigo-600 border-b-2 border-indigo-600 font-extrabold'
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        📬 Form Pendaftaran & Mobilisasi Relawan ({getCustomFormFields('registrasi').length} Kolom Penting)
+                      </button>
+                      <button
+                        onClick={() => setFormTypeActive('feedback')}
+                        className={`px-6 py-3.5 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${
+                          formTypeActive === 'feedback'
+                            ? 'text-indigo-600 border-b-2 border-indigo-600 font-extrabold'
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        📊 Form Evaluasi & Kesehatan Tim ({getCustomFormFields('feedback').length} Kolom Penting)
+                      </button>
+                    </div>
+
+                    {/* DYNAMIC LIST OF FIELDS */}
+                    <div className="space-y-6 text-left">
+                      {getCustomFormFields(formTypeActive).map((field, idx) => {
+                        const isCopied = !!copiedFormFields[field.id];
+                        const toggleFieldCopied = (fieldId: string) => {
+                          setCopiedFormFields(prev => ({ ...prev, [fieldId]: !prev[fieldId] }));
+                        };
+
+                        return (
+                          <div 
+                            key={field.id}
+                            className={`p-6 sm:p-8 rounded-[1.8rem] border transition-all ${
+                              isCopied 
+                                ? 'bg-slate-50/80 border-slate-250 opacity-75 shadow-inner' 
+                                : 'bg-white border-slate-100 shadow-md shadow-slate-100/50 hover:border-indigo-150'
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                              <div className="flex items-start gap-4 flex-1">
+                                {/* Workflow Checklist box */}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleFieldCopied(field.id)}
+                                  className={`mt-1 flex items-center justify-center w-6 h-6 rounded-lg border transition-all cursor-pointer shrink-0 ${
+                                    isCopied
+                                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                                      : 'bg-white border-slate-200 hover:border-slate-300 text-transparent'
+                                  }`}
+                                  title="Tandai Kolom Ini Sebagai Tersalin ke Google Forms"
+                                >
+                                  <Check className="w-4 h-4 stroke-[3.5px]" />
+                                </button>
+                                
+                                <div className="space-y-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Kolom #{idx + 1}</span>
+                                    <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                      {field.type}
+                                    </span>
+                                    {field.required === 'Ya' ? (
+                                      <span className="bg-red-50 border border-red-100 text-red-600 text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                        Wajib Diisi
+                                      </span>
+                                    ) : (
+                                      <span className="bg-slate-50 border border-slate-100 text-slate-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                        Opsional
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  <h4 className="text-base font-bold text-slate-800 leading-snug pt-1">
+                                    {field.title}
+                                  </h4>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2 sm:self-start">
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(field.title);
+                                    toast.success("Judul pertanyaan berhasil disalin.");
+                                    if (!isCopied) toggleFieldCopied(field.id);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors cursor-pointer border border-indigo-100 whitespace-nowrap"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>Salin Judul</span>
+                                </button>
+                              </div>
                             </div>
-                            <div className="space-y-1 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                              <label className="text-[11px] font-bold text-slate-700">Nomor WhatsApp Aktif *</label>
-                              <input type="text" placeholder="Contoh: 0812345678" className="w-full text-xs px-4 py-2 bg-white border border-slate-200 rounded-lg mt-1" />
+
+                            {/* HELP TEXT / DESCRIPTION segment */}
+                            {field.description && (
+                              <div className="mt-4 p-4 bg-slate-50/50 border border-slate-100 rounded-xl space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Teks Keterangan / Deskripsi Form:</span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(field.description);
+                                      toast.success("Deskripsi pertanyaan berhasil disalin.");
+                                    }}
+                                    className="text-[9px] font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                    <span>Salin Deskripsi</span>
+                                  </button>
+                                </div>
+                                <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                                  {field.description}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* OPTIONS segment if choices exist */}
+                            {field.options && field.options.length > 0 && (
+                              <div className="mt-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Opsi Pilihan Ganda:</span>
+                                  <button
+                                    onClick={() => {
+                                      const text = field.options.join('\n');
+                                      navigator.clipboard.writeText(text);
+                                      toast.success("Opsi tersalin! Pilih Option 1 di Google Forms dan paste langsung.");
+                                    }}
+                                    className="p-1 px-3 bg-teal-50 hover:bg-teal-100/80 text-teal-700 border border-teal-150 text-[10px] font-bold uppercase rounded-xl tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                    <span>Salin Semua Opsi (Multi-Line)</span>
+                                  </button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {field.options.map((opt, i) => (
+                                    <div 
+                                      key={i}
+                                      className="px-3 py-1.5 bg-slate-150/60 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200/50 flex items-center gap-2"
+                                    >
+                                      <span>{opt}</span>
+                                      <button 
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(opt);
+                                          toast.success("Opsi tersalin.");
+                                        }}
+                                        className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                                        title="Salin opsi ini saja"
+                                      >
+                                        <Copy className="w-2.5 h-2.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* WORKFLOW FOOTER */}
+                            <div className="mt-4 pt-4 border-t border-slate-150 flex justify-between items-center text-[10px]">
+                              <span className="font-semibold text-slate-400">
+                                {isCopied ? "✔️ Tersalin & terisi di Google Forms Anda" : "⏳ Menanti proses salin..."}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleFieldCopied(field.id)}
+                                className={`font-bold uppercase tracking-wider hover:underline cursor-pointer ${
+                                  isCopied ? 'text-slate-400' : 'text-indigo-600'
+                                }`}
+                              >
+                                {isCopied ? "Tandai Belum Selesai" : "Tandai Sudah Selesai"}
+                              </button>
                             </div>
-                            <div className="space-y-1 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                              <label className="text-[11px] font-bold text-slate-700">Email Utama *</label>
-                              <input type="email" placeholder="Contoh: budi@gmail.com" className="w-full text-xs px-4 py-2 bg-white border border-slate-200 rounded-lg mt-1" />
-                            </div>
-                            <div className="space-y-1 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                              <label className="text-[11px] font-bold text-slate-700">Asal Komunitas/Kampus</label>
-                              <input type="text" placeholder="Contoh: Universitas Airlangga" className="w-full text-xs px-4 py-2 bg-white border border-slate-200 rounded-lg mt-1" />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toast.success("🎉 Simulasi Pengiriman Form Berhasil! Respons data telah disimpan secara lokal.")}
-                              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
-                            >
-                              Kirim Respons Pendaftaran
-                            </button>
                           </div>
-                        ) : (
-                          <div className="space-y-4">
-                            <div className="space-y-1 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                              <label className="text-[11px] font-bold text-slate-700">Siapa nama Anda? (Opsional)</label>
-                              <input type="text" placeholder="Contoh: Sri Ananda" className="w-full text-xs px-4 py-2 bg-white border border-slate-200 rounded-lg mt-1" />
-                            </div>
-                            <div className="space-y-1 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                              <label className="text-[11px] font-bold text-slate-700">Penilaian Rundown & Organisasi Secara Umum *</label>
-                              <textarea placeholder="Bagikan kelancaran rangkaian jalannya acara di lapangan..." className="w-full text-xs px-4 py-2 bg-white border border-slate-200 rounded-lg mt-1 h-20 resize-none" />
-                            </div>
-                            <div className="space-y-1 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                              <label className="text-[11px] font-bold text-slate-700">Apakah pembagian beban tugas panitia dirasa cukup manusiawi? *</label>
-                              <textarea placeholder="Tulis masukan terkait pencegahan tim burnout/lelah..." className="w-full text-xs px-4 py-2 bg-white border border-slate-200 rounded-lg mt-1 h-20 resize-none" />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toast.success("🎉 Simulasi Masukan Berhasil Terkirim! Terima kasih telah berkontribusi menjaga kesehatan tim relawan.")}
-                              className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
-                            >
-                              Kirim Evaluasi & Saran
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </section>
             </motion.div>

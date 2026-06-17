@@ -14,7 +14,7 @@ import { saveBlueprintToCloud, getBlueprintFromCloud, updateBlueprintInCloud, ge
 import { auth, loginWithGoogle, logout, onAuthStateChanged, User } from './services/firebase';
 import { Blueprint, EventData } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShieldCheck, MessageCircle, AlertCircle, Sparkles, LogIn, LogOut, User as UserIcon, Link, Coffee, BarChart3, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, MessageCircle, AlertCircle, Sparkles, LogIn, LogOut, User as UserIcon, Link, Coffee, BarChart3, ArrowLeft, X, ExternalLink, Monitor } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 export default function App() {
@@ -30,6 +30,9 @@ export default function App() {
   const [currentEventData, setCurrentEventData] = React.useState<EventData | null>(null);
    const [user, setUser] = React.useState<User | null>(null);
   const [isDonationOpen, setIsDonationOpen] = React.useState(false);
+  const [isLoginOpen, setIsLoginOpen] = React.useState(false);
+  const [guestName, setGuestName] = React.useState('');
+  const [isLoggingIn, setIsLoggingIn] = React.useState(false);
   const [broadcast, setBroadcast] = React.useState<string | null>(null);
   const [isBroadcastDismissed, setIsBroadcastDismissed] = React.useState(false);
   const [appVersion, setAppVersion] = React.useState<string>('Beta');
@@ -71,23 +74,32 @@ export default function App() {
 
     checkGuestSession();
 
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        setUser(u);
-        localStorage.removeItem('communityos_guest_user');
-      } else {
-        const guestActive = localStorage.getItem('communityos_guest_user');
-        if (guestActive) {
+    let unsubscribe = () => {};
+    if (auth) {
+      unsubscribe = onAuthStateChanged(auth, async (u) => {
+        if (u) {
+          setUser(u);
+          localStorage.removeItem('communityos_guest_user');
           try {
-            setUser(JSON.parse(guestActive));
+            const { recalculateAndSyncOrganizationStats } = await import('./services/dbService');
+            await recalculateAndSyncOrganizationStats();
           } catch (e) {
-            setUser(null);
+            console.warn("Auto-sync database gagal pada saat login:", e);
           }
         } else {
-          setUser(null);
+          const guestActive = localStorage.getItem('communityos_guest_user');
+          if (guestActive) {
+            try {
+              setUser(JSON.parse(guestActive));
+            } catch (e) {
+              setUser(null);
+            }
+          } else {
+            setUser(null);
+          }
         }
-      }
-    });
+      });
+    }
     return () => unsubscribe();
   }, []);
 
@@ -205,7 +217,7 @@ export default function App() {
       
       let cloudIdForHistory = null;
       // Step 4: Save to Cloud if logged in
-      if (auth.currentUser) {
+      if (auth?.currentUser) {
         const cloudId = await saveBlueprintToCloud(result, data);
         if (cloudId) {
           cloudIdForHistory = cloudId;
@@ -328,16 +340,42 @@ export default function App() {
   };
 
   const handleLogin = async () => {
+    setIsLoggingIn(true);
     try {
       const user = await loginWithGoogle();
       if (user) {
         setUser(user);
-        toast.success("Berhasil masuk! Mode Gerilya aktif secara lokal.");
+        setIsLoginOpen(false);
+        toast.success("Berhasil masuk! Sesi cloud disinkronkan & database dipulihkan.");
       }
     } catch (err: any) {
-      console.warn("Gagal masuk:", err);
-      toast.error("Gagal masuk. Silakan coba lagi.");
+      console.warn("Gagal masuk via Google:", err);
+      const isIframe = window.self !== window.top;
+      if (isIframe) {
+        toast.error("Masuk Google diblokir oleh iFrame. Silakan gunakan 'Buka di Tab Baru' atau masuk dengan Mode Gerilya Offline.");
+      } else {
+        toast.error("Gagal masuk. Silakan coba lagi.");
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
+  };
+
+  const handleGuestLogin = (customName: string) => {
+    const name = customName.trim() || 'Relawan Mandiri';
+    const guestUid = 'gerilya_guest_' + Math.random().toString(36).substring(2, 9);
+    const guestUser = {
+      uid: guestUid,
+      displayName: name,
+      email: 'relawan.mandiri@communityos.id',
+      photoURL: null,
+      emailVerified: true,
+      isGuest: true
+    };
+    localStorage.setItem('communityos_guest_user', JSON.stringify(guestUser));
+    setUser(guestUser as any);
+    setIsLoginOpen(false);
+    toast.success(`Selamat datang, ${name}! Sesi lokal Gerilya Mode berhasil diaktifkan.`);
   };
 
   return (
@@ -426,8 +464,8 @@ export default function App() {
               </div>
             ) : (
               <button 
-                onClick={handleLogin}
-                className="px-4 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-all shadow-sm active:scale-95"
+                onClick={() => setIsLoginOpen(true)}
+                className="px-4 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-all shadow-sm active:scale-95 cursor-pointer pointer-events-auto"
               >
                 Masuk
               </button>
@@ -591,6 +629,125 @@ export default function App() {
         onClose={() => setIsDonationOpen(false)} 
         userEmail={user?.email} 
       />
+
+      {/* Elegant Login / Database Restore Dialog */}
+      <AnimatePresence>
+        {isLoginOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsLoginOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            {/* Modal Body */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-10 p-6 md:p-8 space-y-6 text-left"
+            >
+              {/* Close button */}
+              <button 
+                onClick={() => setIsLoginOpen(false)}
+                className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors pointer-events-auto cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="space-y-2">
+                <div className="inline-flex p-3 bg-teal-50 rounded-xl text-teal-600 mb-2">
+                  <UserIcon className="w-6 h-6" />
+                </div>
+                <h3 className="text-xl font-display font-semibold text-slate-800 font-sans">Masuk ke CommunityOS</h3>
+                <p className="text-xs text-slate-500 leading-relaxed font-sans">
+                  Pilih metode masuk untuk menyelaraskan blueprint kegiatan Anda secara rill di cloud atau kelola mandiri secara offline.
+                </p>
+              </div>
+
+              {/* Warning inside iframe */}
+              {window.self !== window.top && (
+                <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-100/70 text-amber-800 text-xs flex gap-2.5 items-start font-sans">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold leading-none">Iframe Terdeteksi (AI Studio Preview)</p>
+                    <p className="leading-relaxed text-[11px] text-amber-700">
+                      Login Google Pop-up diblokir oleh iFrame browser demi keamanan. Silakan gunakan <strong>Mode Gerilya</strong> secara instan atau buka aplikasi di tab baru.
+                    </p>
+                    <button 
+                      onClick={() => window.open(window.location.href, '_blank')}
+                      className="inline-flex items-center gap-1 font-bold text-amber-900 border-b border-amber-900/30 hover:border-amber-900 shrink-0 text-[10px] mt-1.5 transition-all pointer-events-auto cursor-pointer"
+                    >
+                      Buka di Tab Baru <ExternalLink className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="space-y-4">
+                {/* Google Sign-in Option */}
+                <button 
+                  onClick={handleLogin}
+                  disabled={isLoggingIn}
+                  className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer disabled:opacity-50 pointer-events-auto"
+                >
+                  {isLoggingIn ? (
+                    <span className="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                      <path fill="#EA4335" d="M12.24 10.285V14.4h6.818c-.29 1.64-1.925 4.825-6.818 4.825-4.225 0-7.67-3.495-7.67-7.8s3.445-7.8 7.67-7.8c2.4 0 4.015 1.025 4.935 1.91l3.3-3.175C18.33 1.155 15.54 0 12.24 0 5.48 0 0 5.48 0 12.24s5.48 12.24 12.24 12.24c7.055 0 11.75-4.965 11.75-11.97 0-.795-.085-1.4-.195-2.225H12.24z"/>
+                    </svg>
+                  )}
+                  <span className="font-sans">{isLoggingIn ? "Menghubungkan..." : "Masuk via Google Cloud"}</span>
+                </button>
+
+                {/* Divider */}
+                <div className="relative flex py-1 items-center">
+                  <div className="flex-grow border-t border-slate-100"></div>
+                  <span className="flex-shrink mx-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-sans">Atau</span>
+                  <div className="flex-grow border-t border-slate-100"></div>
+                </div>
+
+                {/* Local Guest Option ("Mode Gerilya") */}
+                <div className="bg-slate-50/70 rounded-xl border border-slate-100 p-4 space-y-3 font-sans">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm select-none">🎒</span>
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Mode Gerilya Offline-First</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nama Anda (Opsional)</label>
+                    <input 
+                      type="text" 
+                      placeholder="Contoh: Relawan Mandiri" 
+                      value={guestName} 
+                      onChange={(e) => setGuestName(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:border-teal-500 transition-colors pointer-events-auto"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleGuestLogin(guestName);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <button 
+                    onClick={() => handleGuestLogin(guestName)}
+                    className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer pointer-events-auto"
+                  >
+                    Masuk Instan (Bypass Iframe)
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

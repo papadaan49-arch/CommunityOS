@@ -13,17 +13,20 @@ export const BlueprintHistory: React.FC<BlueprintHistoryProps> = ({ onSelect }) 
   const [localHistory, setLocalHistory] = React.useState<HistoryItem[]>([]);
   const [cloudHistory, setCloudHistory] = React.useState<HistoryItem[]>([]);
   const [loading, setLoading] = React.useState(false);
-  const [user, setUser] = React.useState(auth.currentUser);
+  const [user, setUser] = React.useState(auth?.currentUser || null);
 
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      if (u) {
-        fetchCloudHistory();
-      } else {
-        setCloudHistory([]);
-      }
-    });
+    let unsubscribe = () => {};
+    if (auth) {
+      unsubscribe = onAuthStateChanged(auth, (u) => {
+        setUser(u);
+        if (u) {
+          fetchCloudHistory();
+        } else {
+          setCloudHistory([]);
+        }
+      });
+    }
 
     setLocalHistory(getHistory());
     return () => unsubscribe();

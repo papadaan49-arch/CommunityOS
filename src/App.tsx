@@ -11,8 +11,7 @@ import { CreatorProfile } from './components/CreatorProfile';
 import { generateBlueprint, validateInputWithAI, refineBlueprint } from './services/geminiService';
 import { saveBlueprintToHistory, HistoryItem, clearHistory as clearLocalHistory, clearSessionCache } from './services/storageService';
 import { saveBlueprintToCloud, getBlueprintFromCloud, updateBlueprintInCloud, getAppSetting, updateBlueprintRealizationStatus } from './services/dbService';
-import { auth, loginWithGoogle, logout } from './services/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth, loginWithGoogle, logout, onAuthStateChanged, User } from './services/firebase';
 import { Blueprint, EventData } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, MessageCircle, AlertCircle, Sparkles, LogIn, LogOut, User as UserIcon, Link, Coffee, BarChart3, ArrowLeft } from 'lucide-react';
@@ -23,8 +22,6 @@ export default function App() {
   const [currentBlueprintId, setCurrentBlueprintId] = React.useState<string | null>(null);
   const [realizationStatus, setRealizationStatus] = React.useState<'draft' | 'ready' | 'realized'>('draft');
   const [realizationDetails, setRealizationDetails] = React.useState<any>(null);
-  const [rundownChecklist, setRundownChecklist] = React.useState<Record<string, boolean>>({});
-  const [rundownNotes, setRundownNotes] = React.useState<Record<string, string>>({});
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = React.useState(0);
@@ -58,8 +55,38 @@ export default function App() {
   }, []);
 
   React.useEffect(() => {
+    // Memeriksa apakah ada sesi Relawan Mandiri (offline guest) yang aktif secara lokal
+    const checkGuestSession = () => {
+      const savedGuest = localStorage.getItem('communityos_guest_user');
+      if (savedGuest) {
+        try {
+          setUser(JSON.parse(savedGuest));
+          return true;
+        } catch (e) {
+          console.error("Gagal memproses sesi tamu lokal:", e);
+        }
+      }
+      return false;
+    };
+
+    checkGuestSession();
+
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+      if (u) {
+        setUser(u);
+        localStorage.removeItem('communityos_guest_user');
+      } else {
+        const guestActive = localStorage.getItem('communityos_guest_user');
+        if (guestActive) {
+          try {
+            setUser(JSON.parse(guestActive));
+          } catch (e) {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -103,8 +130,6 @@ export default function App() {
         setCurrentBlueprintId(doc.id);
         setRealizationStatus(doc.realizationStatus || 'draft');
         setRealizationDetails(doc.realizationDetails || null);
-        setRundownChecklist(doc.rundownChecklist || {});
-        setRundownNotes(doc.rundownNotes || {});
       } else {
         setError("Blueprint tidak ditemukan atau Anda tidak memiliki akses.");
       }
@@ -256,8 +281,6 @@ export default function App() {
     setCurrentBlueprintId(item.cloudId || null);
     setRealizationStatus('draft');
     setRealizationDetails(null);
-    setRundownChecklist({});
-    setRundownNotes({});
     
     // If it has cloud ID, load its real-time status dynamically
     if (item.cloudId) {
@@ -266,8 +289,6 @@ export default function App() {
         if (doc) {
           setRealizationStatus(doc.realizationStatus || 'draft');
           setRealizationDetails(doc.realizationDetails || null);
-          setRundownChecklist(doc.rundownChecklist || {});
-          setRundownNotes(doc.rundownNotes || {});
         }
       } catch (err) {
         console.error("Failed to fetch cloud status for history item", err);
@@ -299,8 +320,6 @@ export default function App() {
     setCurrentBlueprintId(null);
     setRealizationStatus('draft');
     setRealizationDetails(null);
-    setRundownChecklist({});
-    setRundownNotes({});
     // Clear ID from URL
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.delete('id');
@@ -312,24 +331,11 @@ export default function App() {
     try {
       const user = await loginWithGoogle();
       if (user) {
-        // Save public profile
-        const { setDoc, doc, serverTimestamp } = await import('firebase/firestore');
-        const { db } = await import('./services/firebase');
-        await setDoc(doc(db, 'users', user.uid, 'public', 'profile'), {
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-          email: user.email,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-        
-        // Also save indexed email for lookup
-        await setDoc(doc(db, 'users_by_email', user.email || ''), {
-          uid: user.uid,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+        setUser(user);
+        toast.success("Berhasil masuk! Mode Gerilya aktif secara lokal.");
       }
-      toast.success("Berhasil masuk! Sekarang blueprint Anda akan tersimpan di cloud.");
-    } catch (err) {
+    } catch (err: any) {
+      console.warn("Gagal masuk:", err);
       toast.error("Gagal masuk. Silakan coba lagi.");
     }
   };
@@ -378,25 +384,41 @@ export default function App() {
                   <span className="hidden sm:inline">Bagikan</span>
                 </button>
                 <div className="flex items-center gap-2 pl-3 border-l border-slate-100">
+                  <div className="flex flex-col items-end mr-1 text-right">
+                    <span className="text-[10px] font-bold text-slate-700 leading-none">
+                      {user.displayName || 'Pengguna'}
+                    </span>
+                    {(user as any).isGuest && (
+                      <span className="text-[7px] font-extrabold text-teal-600 uppercase tracking-widest leading-none mt-1">
+                        Gerilya Mode
+                      </span>
+                    )}
+                  </div>
                   <div className="w-7 h-7 rounded-full overflow-hidden border border-slate-100">
                     {user.photoURL ? (
-                      <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
+                      <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <div className="w-full h-full bg-slate-50 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                        {user.displayName?.charAt(0) || user.email?.charAt(0)}
+                      <div className="w-full h-full bg-teal-50 flex items-center justify-center text-[10px] font-bold text-teal-600">
+                        🎒
                       </div>
                     )}
                   </div>
                   <button 
                     onClick={async () => {
-                      await logout();
+                      try {
+                        await logout();
+                      } catch (e) {
+                        // ignore failures during offline logout
+                      }
+                      localStorage.removeItem('communityos_guest_user');
                       clearLocalHistory();
                       clearSessionCache();
+                      setUser(null);
                       setBlueprint(null);
                       setCurrentBlueprintId(null);
-                      toast.success("Berhasil keluar. Riwayat lokal dibersihkan.");
+                      toast.success("Berhasil keluar. Sesi telah dibersihkan.");
                     }}
-                    className="text-slate-300 hover:text-red-500 transition-colors"
+                    className="text-slate-300 hover:text-red-500 transition-colors pointer-events-auto cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                   </button>
@@ -444,6 +466,13 @@ export default function App() {
             </button>
           </div>
         </motion.div>
+      )}
+
+      {user && (user as any).isGuest && (
+        <div className="bg-teal-500/10 border-b border-teal-500/20 px-4 py-2.5 text-teal-800 text-[11px] font-bold tracking-wide text-center flex items-center justify-center gap-1.5 shadow-sm">
+          <span>🎒</span> 
+          <span>Mode Gerilya Aktif (Offline-First): Seluruh data disimpan secara lokal dengan aman di perangkat Anda. 100% Mandiri!</span>
+        </div>
       )}
 
       <main className="max-w-4xl mx-auto content-padding pt-8 md:pt-16 pb-20 md:pb-32">
@@ -542,8 +571,6 @@ export default function App() {
                 userEmail={user?.email}
                 initialRealizationStatus={realizationStatus}
                 initialRealizationDetails={realizationDetails}
-                initialRundownChecklist={rundownChecklist}
-                initialRundownNotes={rundownNotes}
                 originalEventData={currentEventData}
                 onUpdateRealizationStatus={(status, details) => {
                   setRealizationStatus(status);

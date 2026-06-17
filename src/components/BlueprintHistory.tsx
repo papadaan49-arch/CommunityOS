@@ -2,9 +2,8 @@ import React from 'react';
 import { History as HistoryIcon, MapPin, Calendar, ArrowRight, Trash2, Cloud, User as UserIcon, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { HistoryItem, getHistory, clearHistory } from '../services/storageService';
-import { auth } from '../services/firebase';
+import { auth, onAuthStateChanged } from '../services/firebase';
 import { getUserBlueprints, BlueprintDocument } from '../services/dbService';
-import { onAuthStateChanged } from 'firebase/auth';
 
 interface BlueprintHistoryProps {
   onSelect: (item: HistoryItem) => void;

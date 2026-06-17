@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, CreditCard, MapPin, Share2, Copy, Check, Zap, Gauge, AlertTriangle, ClipboardList, Handshake, FileText, FileDown, Loader2, Settings2, RefreshCcw, ArrowLeft, ExternalLink, MessageSquare, HeartHandshake, Clock, Sparkles, ShieldCheck, Cloud, LogIn, HardDrive, CheckSquare, ListPlus, SendHorizontal } from 'lucide-react';
+import { Calendar, CreditCard, MapPin, Share2, Copy, Check, Zap, Gauge, AlertTriangle, ClipboardList, Handshake, FileText, FileDown, Loader2, Settings2, RefreshCcw, ArrowLeft, ExternalLink, MessageSquare, HeartHandshake, Clock, Sparkles, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { Blueprint } from '../types';
@@ -10,8 +10,7 @@ import { LoadingOverlay } from './LoadingOverlay';
 import { HelpTooltip } from './HelpTooltip';
 import { GUIDANCE_DATA } from '../constants/guidance';
 import { generateDocx } from '../services/docxService';
-import { updateBlueprintRealizationStatus, updateBlueprintRundownProgress } from '../services/dbService';
-import { loginWithGoogle, auth } from '../services/firebase';
+import { updateBlueprintRealizationStatus } from '../services/dbService';
 
 interface Props {
   blueprint: Blueprint;
@@ -19,8 +18,6 @@ interface Props {
   userEmail?: string | null;
   initialRealizationStatus?: 'draft' | 'ready' | 'realized';
   initialRealizationDetails?: any;
-  initialRundownChecklist?: Record<string, boolean>;
-  initialRundownNotes?: Record<string, string>;
   originalEventData?: any;
   onUpdateRealizationStatus?: (status: 'draft' | 'ready' | 'realized', details?: any) => void;
   onRevision: () => void;
@@ -35,8 +32,6 @@ export const BlueprintDisplay: React.FC<Props> = ({
   userEmail, 
   initialRealizationStatus, 
   initialRealizationDetails, 
-  initialRundownChecklist,
-  initialRundownNotes,
   originalEventData, 
   onUpdateRealizationStatus, 
   onRevision, 
@@ -46,7 +41,7 @@ export const BlueprintDisplay: React.FC<Props> = ({
   const [exporting, setExporting] = React.useState(false);
   const [exportStatus, setExportStatus] = React.useState('Sistem sedang merangkai blueprint Anda...');
   const [refinementText, setRefinementText] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState<'meta' | 'operational' | 'wellbeing' | 'outreach' | 'workspace'>('meta');
+  const [activeTab, setActiveTab] = React.useState<'meta' | 'operational' | 'wellbeing' | 'outreach'>('meta');
 
   const [realStatus, setRealStatus] = React.useState<'draft' | 'ready' | 'realized'>(initialRealizationStatus || 'draft');
   const [realDetails, setRealDetails] = React.useState<any>(initialRealizationDetails || null);
@@ -76,306 +71,35 @@ export const BlueprintDisplay: React.FC<Props> = ({
   // Mini-map visibility state (Gerilya Scale tactical map)
   const [showMiniMap, setShowMiniMap] = React.useState(false);
 
-  // Raffle Arisan states ('Ide Nyeleneh Positif & Acak')
-  const [arisanVolunteers, setArisanVolunteers] = React.useState<string[]>([]);
-  const [newArisanInput, setNewArisanInput] = React.useState('');
-  const [arisanTasks] = React.useState<{ title: string; desc: string; icon: string }[]>([
-    { title: 'Sapu & Bersihkan Lokasi Akhir Acara', desc: 'Menjaga kebersihan dan memastikan tempat kembali rapi (0 Sampah Tertinggal).', icon: '🧹' },
-    { title: 'PJ Beli Kopi & Es Teh Tambahan', desc: 'PJ Penyelamat Dahaga! Menyuplai bensin oktan tinggi berupa kafein manis bagi tim lelah.', icon: '🥤' },
-    { title: 'PJ Dokumentasi Foto Candid Panitia Paling Lecek', desc: 'PJ Hiburan! Mengambil footage tawa kelelahan panitia untuk kenang-kenangan hangat.', icon: '📸' },
-    { title: 'PJ Check-In & Senyum Sapa Hangat Peserta', desc: 'Duta Ramah! Berada di baris depan memberi sambutan terbaik agar peserta merasa diterima.', icon: '😊' },
-    { title: 'PJ Gulung Kabel & Sound System', desc: 'Pahlawan Kabel! Menjaga keselamatan instalasi kelistrikan dari injakan atau benturan.', icon: '🔌' },
-    { title: 'PJ Logistik Angkat Kursi / Beres Kursi', desc: 'Otot Komunitas! Memindahkan aset fisik secara gotong royong dengan presisi.', icon: '💪' },
-  ]);
-  const [selectedArisanTaskIndex, setSelectedArisanTaskIndex] = React.useState<number>(0);
-  const [currentSelectedSpinnerName, setCurrentSelectedSpinnerName] = React.useState<string>('Dadu Tugas');
-  const [isArisanSpinning, setIsArisanSpinning] = React.useState(false);
-  const [arisanWinner, setArisanWinner] = React.useState<string | null>(null);
-  const [arisanExplanation, setArisanExplanation] = React.useState<string | null>(null);
-
-  // Emergency scenario states ('Skenario Darurat & Pecah Gelombang')
-  const [activeEmergencyIndex, setActiveEmergencyIndex] = React.useState<number | null>(null);
-
-  // Google Workspace integration states
-  const [isExportingToDrive, setIsExportingToDrive] = React.useState(false);
-  const [driveFileLink, setDriveFileLink] = React.useState<string | null>(null);
-  const [driveFileName, setDriveFileName] = React.useState<string | null>(null);
-  const [isCreatingForm, setIsCreatingForm] = React.useState(false);
-  const [formTypeActive, setFormTypeActive] = React.useState<'registrasi' | 'feedback'>('registrasi');
-  const [googleFormResult, setGoogleFormResult] = React.useState<{ responderUri: string; editUri: string } | null>(null);
-  const [copiedFormFields, setCopiedFormFields] = React.useState<Record<string, boolean>>({});
-  const [workspaceError, setWorkspaceError] = React.useState<string | null>(null);
-
-  // WhatsApp Jarkom states
-  const [activeWaTemplate, setActiveWaTemplate] = React.useState<'invitation' | 'rundown' | 'announcement' | 'gratitude'>('invitation');
-  const [customWaContactName, setCustomWaContactName] = React.useState('Kak Admin');
-  const [customWaLink, setCustomWaLink] = React.useState('https://bit.ly/DaftarKomunitasOS');
-
-  const getWaBroadcastText = (template: 'invitation' | 'rundown' | 'announcement' | 'gratitude') => {
-    const orgName = originalEventData?.organization || "Komunitas Kita";
-    switch (template) {
-      case 'invitation':
-        return `*📢 UNDANGAN TERBUKA RELAWAN KEMANUSIAAN*
-
-Halo rekan-rekan penggerak komunitas! 😊
-
-Kami dari *${orgName}* mengundang kalian untuk bergabung menjadi bagian penting dalam menyukseskan kegiatan hangat kita:
-
-*✨ ${blueprint.event_meta.title} ✨*
-
-📍 *Lokasi Kegiatan:* ${blueprint.event_meta.location}
-🛡️ *Wellbeing Guard:* Level Keamanan *${blueprint.wellbeing_guard.risk_level}*, kami sangat memprioritaskan energi dan porsi istirahat tim!
-
-*Mengapa bergabung bersama kami?*
-- Suasana kolaborasi gotong-royong demi dampak nyata.
-- Bebas dari _burnout_ berkat shift manusiawi.
-- Relasi hangat dengan partner lokal pendukung seperti: _${blueprint.outreach.local_partners.slice(0, 3).join(', ')}_.
-
-Koneksikan energi kita, mari bergerak taktis!
-Silakan daftarkan diri rekan-rekan melalui:
-👉 *${customWaLink || 'https://bit.ly/DaftarKomunitasOS'}*
-
-Narahubung: *${customWaContactName || 'Kak Admin'}*
-
----
-_Dikirim otomatis & taktis via CommunityOS Indonesia_`;
-
-      case 'rundown':
-        return `*📅 JARKOM: AGENDA KEGIATAN & RUNDOWN ACARA*
-
-Halo rekan-rekan panitia & peserta! 👋
-
-Berikut adalah draf rundown manusiawi untuk kelancaran hajatan kita bersama:
-*🏆 ${blueprint.event_meta.title}*
-
-📍 *Tempat:* ${blueprint.event_meta.location}
-
-*RUNDOWN TAKTIS:*
-${blueprint.operational.rundown.map(r => `- *${r.time}* : ${r.task}`).join('\n')}
-
-💡 *Catatan Sejuk:*
-Jaga stamina, gunakan pakaian nyaman, dan mari saling support di lapangan. Tidak perlu mengejar kesempurnaan berlebih, yang penting tawa riang gembira dan solidaritas kita tetap utuh!
-
-Info koordinasi lapangan lebih lanjut:
-📞 *${customWaContactName || 'Kak Admin'}* (WhatsApp)
-
-Sampai jumpa di lokasi! 🙌`;
-
-      case 'announcement':
-        return `*🔥 INFO HARI-H: SIAP MELUNCUR TAKTIS!*
-
-Halo pejuang tangguh! 🚀
-
-Hari ini adalah tibanya momentum untuk:
-*✨ ${blueprint.event_meta.title}*
-
-Teman-teman panitia harap fokus pada hal-hal esensial berikut:
-1. Datang tepat waktu demi koordinasi santai sebelum kick-off.
-2. Jaga hidrasi tubuh! Sediakan air minum masing-masing 🥤.
-3. Tetap tenang menghadapi segala kejutan di lapangan. Kami punya jaring pengaman (_Wellbeing Guard_) yang siaga.
-
-📍 *Sapu Bersih Lokasi:* Di akhir nanti, jangan lupa biasakan tradisi *0 Sampah Tertinggal*, mari jaga bumi tempat kita berdaya.
-
-Narahubung Darurat Lapangan:
-📱 *${customWaContactName || 'Kak Admin'}*
-
-Mari bergerak gembira, berikan senyum terbaik kita hari ini! 🌟`;
-
-      case 'gratitude':
-        return `*💖 APRESIASI SETINGGI-TINGGINYA & TERIMA KASIH BANYAK!*
-
-Halo seluruh keluarga besar relawan dan panitia! 🌸
-
-Kami dari *${orgName}* mengucapkan terima kasih yang begitu mendalam atas limpahan tenaga, tawa, dan keikhlasan rekan-rekan pada kegiatan:
-
-*🎉 ${blueprint.event_meta.title} 🎉*
-
-Kita telah membuktikan bahwa kontribusi kolektif _${blueprint.event_meta.scale_classification}_ mampu melahirkan dampak yang luar biasa indah di *${blueprint.event_meta.location}*.
-
-Mohon luangkan waktu 2 menit untuk memberikan draf evaluasi & masukan sehat demi pertumbuhan komunitas kita di masa depan:
-👉 *${customWaLink || 'https://bit.ly/DaftarKomunitasOS'}*
-
-Jaga stamina dan selamat beristirahat dengan tenang. Sampai berjumpa di kolaborasi-kolaborasi keren berikutnya!
-
-Salam hangat & gotong-royong,
-*${orgName}*`;
-    }
-  };
-
-  const getCustomFormFields = (type: 'registrasi' | 'feedback') => {
-    const orgName = originalEventData?.organization || "Komunitas Kita";
-    const eventName = blueprint?.event_meta?.title || "Kegiatan Hangat";
-    const scale = blueprint?.event_meta?.scale_classification || "Community Scale";
-    
-    if (type === 'registrasi') {
-      return [
-        {
-          id: 'reg_nama',
-          title: 'Nama Lengkap (atau Panggilan Akrab)',
-          type: 'Jawaban Singkat (Short Answer)',
-          required: 'Ya',
-          description: `Sapaan hangat yang ingin Anda gunakan saat berkoordinasi lapangan di agenda "${eventName}". Kami mengutamakan budaya keakraban gotong-royong.`,
-          options: []
-        },
-        {
-          id: 'reg_wa',
-          title: 'Nomor WhatsApp Aktif / Kontak Darurat',
-          type: 'Jawaban Singkat (Short Answer)',
-          required: 'Ya',
-          description: 'Digunakan hanya untuk koordinasi pembagian shift relawan dan grup koordinasi lapangan.',
-          options: []
-        },
-        {
-          id: 'reg_shift',
-          title: 'Pilihan Alokasi Peran & Divisi Kerja Lapangan (Sesuai Minat & Energi)',
-          type: 'Kotak Centang (Checkboxes) - Bisa pilih lebih dari 1',
-          required: 'Ya',
-          description: `Untuk agenda berskala ${scale} ini, panitia bekerja secara shift manusiawi (maksimal 4 jam per shift) demi mencegah burnout. Pilih peran yang paling Anda minati:`,
-          options: [
-            '👥 Divisi Hubungan Masyarakat & Interaksi Warga (Mendampingi para hadirin secara santun)',
-            '🍱 Divisi Logistik Selesa & Konsumsi (Menjaga energi, air minum, hidrasi, & stamina rekan-rekan)',
-            '📸 Divisi Dokumentasi & Storytelling Kreatif (Fokus merekam kehangatan & senyum tanpa rekayasa)',
-            '🧘 Divisi Wellbeing Guard & K3 (Membantu mengawasi sirkulasi istirahat panitia dari kelelahan)'
-          ]
-        },
-        {
-          id: 'reg_wellbeing',
-          title: 'Apakah Anda bersedia berkomitmen tulus meredam ego & saling merangkul di lapangan?',
-          type: 'Pilihan Ganda (Multiple Choice)',
-          required: 'Ya',
-          description: 'Bagi kami di CommunityOS Indonesia, solidaritas & kesehatan setiap individu tim jauh lebih penting daripada kesempurnaan acara.',
-          options: [
-            'Ya, saya sangat setuju mengutamakan kesehatan fisik & solidaritas kelompok.',
-            'Tentu, saya siap menjaga batasan energi & saling mendukung demi Zero-Burnout!'
-          ]
-        },
-        {
-          id: 'reg_kesehatan',
-          title: 'Informasi Riwayat Kesehatan Khusus / Alergi Makanan pendukung',
-          type: 'Paragraf (Paragraph)',
-          required: 'Tidak',
-          description: 'Bantu kami menjaga Anda. Beritahu kami jika memiliki riwayat kesehatan khusus (misal asma, alergi telur, atau batasan fisik tertentu).',
-          options: []
-        }
-      ];
-    } else {
-      return [
-        {
-          id: 'feed_nama',
-          title: 'Nama Penggerak / Anggota Tim (Opsional)',
-          type: 'Jawaban Singkat (Short Answer)',
-          required: 'Tidak',
-          description: 'Sebutkan nama Anda atau biarkan kosong jika Anda ingin menyampaikan masukan krusial secara aman & anonim.',
-          options: []
-        },
-        {
-          id: 'feed_stamina',
-          title: 'Skala Degradasi Stamina & Kelelahan Fisik Pasca Agenda Selesai',
-          type: 'Skala Linear (Linear Scale) 1 - 5',
-          required: 'Ya',
-          description: 'Evaluasi nyata rasa lelah Anda. (1 = Sangat Bugur & Bertenaga, 5 = Mengalami Kelelahan Ekstrem/Butuh Cuti Komunitas).',
-          options: ['1 - Luar biasa segar', '2 - Lelah normal wajar', '3 - Cukup letih', '4 - Capek sekali', '5 - Burnout / Habis energi total']
-        },
-        {
-          id: 'feed_logistik',
-          title: 'Kualitas Dukungan Nutrisi & Hidrasi Selama Bertugas',
-          type: 'Pilihan Ganda (Multiple Choice)',
-          required: 'Ya',
-          description: 'Apakah asupan makanan gizi, snack ringan, dan ketersediaan air bersih di posko mencukupi?',
-          options: [
-            'Luar Biasa (Kenyang melimpah, hidrasi sangat aman)',
-            'Cukup (Logistik tersedia walau sempat ada keterlambatan)',
-            'Kurang Terurus (Sempat kehausan / porsi snack sangat minim)'
-          ]
-        },
-        {
-          id: 'feed_beban',
-          title: 'Apakah pembagian tugas di dalam tim Anda dirasa adil dan bebas stres?',
-          type: 'Pilihan Ganda (Multiple Choice)',
-          required: 'Ya',
-          description: 'Evaluasi beban kerja untuk menjadi bahan koreksi pengelola di masa depan.',
-          options: [
-            'Sangat Adil & Manusiawi (Shift berjalan tepat waktu & beban pas)',
-            'Cukup Adil (Beban kerja wajar, namun koordinasi grup agak bising)',
-            'Mengeksploitasi (Pekerjaan menumpuk di 1-2 relawan saja, kekurangan orang)'
-          ]
-        },
-        {
-          id: 'feed_cerita',
-          title: 'Cerita/Momen Terhangat yang Menumbuhkan Jiwa Gotong-Royong Anda',
-          type: 'Paragraf (Paragraph)',
-          required: 'Tidak',
-          description: 'Bagikan tawa riang atau cerita berharga saat bersentuhan langsung dengan warga atau rekan relawan.',
-          options: []
-        }
-      ];
-    }
-  };
-
-  const renderWhatsAppFormattedText = (rawText: string) => {
-    return rawText.split('\n').map((line, i) => {
-      let formatted = line;
-      formatted = formatted
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-      formatted = formatted.replace(/```([^`]+)```/g, '<code class="font-mono bg-slate-200/60 dark:bg-slate-800/60 px-1 py-0.5 rounded text-[11px] text-slate-800">$1</code>');
-      formatted = formatted.replace(/\*([^*]+)\*/g, '<strong class="font-bold text-slate-900">$1</strong>');
-      formatted = formatted.replace(/_([^_]+)_/g, '<em class="italic text-slate-700">$1</em>');
-      formatted = formatted.replace(/~([^~]+)~/g, '<del class="line-through text-slate-400">$1</del>');
-      return (
-        <div key={i} className="min-h-[1.2em]" dangerouslySetInnerHTML={{ __html: formatted }} />
-      );
-    });
-  };
-
-  // Sync checklist and notes with localStorage / Cloud Props for continuity
+  // Sync checklist and notes with localStorage for continuity
   React.useEffect(() => {
-    if (!blueprint || !blueprint.event_meta) return;
+    if (!blueprint) return;
     const titleKey = blueprint.event_meta.title.replace(/\s+/g, '_');
     
-    // Check if cloud props exist (and are not empty)
-    if (blueprintId && initialRundownChecklist && Object.keys(initialRundownChecklist).length > 0) {
-      const mappedChecklist: Record<number, boolean> = {};
-      Object.entries(initialRundownChecklist).forEach(([k, v]) => {
-        mappedChecklist[Number(k)] = !!v;
-      });
-      setCompletedRundownItems(mappedChecklist);
-    } else {
-      // Load completed checklist from localStorage
-      try {
-        const storedCompleted = localStorage.getItem(`c_run_comp_${titleKey}`);
-        if (storedCompleted) {
-          setCompletedRundownItems(JSON.parse(storedCompleted));
-        } else {
-          setCompletedRundownItems({});
-        }
-      } catch (_) {
+    // Load completed checklist
+    try {
+      const storedCompleted = localStorage.getItem(`c_run_comp_${titleKey}`);
+      if (storedCompleted) {
+        setCompletedRundownItems(JSON.parse(storedCompleted));
+      } else {
         setCompletedRundownItems({});
       }
+    } catch (_) {
+      setCompletedRundownItems({});
     }
 
-    // Check if cloud notes exist (and are not empty)
-    if (blueprintId && initialRundownNotes && Object.keys(initialRundownNotes).length > 0) {
-      const mappedNotes: Record<number, string> = {};
-      Object.entries(initialRundownNotes).forEach(([k, v]) => {
-        mappedNotes[Number(k)] = String(v);
-      });
-      setRundownFieldNotes(mappedNotes);
-    } else {
-      // Load rundown local notes from localStorage
-      try {
-        const storedNotes = localStorage.getItem(`c_run_notes_${titleKey}`);
-        if (storedNotes) {
-          setRundownFieldNotes(JSON.parse(storedNotes));
-        } else {
-          setRundownFieldNotes({});
-        }
-      } catch (_) {
+    // Load rundown local notes
+    try {
+      const storedNotes = localStorage.getItem(`c_run_notes_${titleKey}`);
+      if (storedNotes) {
+        setRundownFieldNotes(JSON.parse(storedNotes));
+      } else {
         setRundownFieldNotes({});
       }
+    } catch (_) {
+      setRundownFieldNotes({});
     }
-  }, [blueprint, blueprintId, initialRundownChecklist, initialRundownNotes]);
+  }, [blueprint]);
 
   const handleToggleRundownItem = (index: number) => {
     const titleKey = blueprint.event_meta.title.replace(/\s+/g, '_');
@@ -385,11 +109,6 @@ Salam hangat & gotong-royong,
     };
     setCompletedRundownItems(updated);
     localStorage.setItem(`c_run_comp_${titleKey}`, JSON.stringify(updated));
-
-    // Sinkronkan ke Cloud secara asinkron jika online
-    if (blueprintId) {
-      updateBlueprintRundownProgress(blueprintId, updated, rundownFieldNotes);
-    }
 
     if (updated[index]) {
       toast.success(`✨ Agenda "${blueprint.operational.rundown[index].task}" selesai dilalui! Semangat tim tetap terjaga.`);
@@ -405,11 +124,6 @@ Salam hangat & gotong-royong,
     setRundownFieldNotes(updated);
     localStorage.setItem(`c_run_notes_${titleKey}`, JSON.stringify(updated));
     
-    // Sinkronkan ke Cloud secara asinkron jika online
-    if (blueprintId) {
-      updateBlueprintRundownProgress(blueprintId, completedRundownItems, updated);
-    }
-
     // Auto populate main realization form if they decide to report later!
     if (text.trim() && !fieldNotes.includes(text)) {
       setFieldNotes(prev => {
@@ -422,58 +136,6 @@ Salam hangat & gotong-royong,
     setActiveNoteEditIndex(null);
     setTempNoteText('');
     toast.success("📝 Catatan lapangan berhasil diabadikan!");
-  };
-
-  const handleStartArisan = () => {
-    if (arisanVolunteers.length === 0 || isArisanSpinning) return;
-    setIsArisanSpinning(true);
-    setArisanWinner(null);
-    setArisanExplanation(null);
-    
-    let counter = 0;
-    const duration = 1500; // 1.5s
-    const step = 80;
-    
-    const interval = setInterval(() => {
-      const idx = Math.floor(Math.random() * arisanVolunteers.length);
-      setCurrentSelectedSpinnerName(arisanVolunteers[idx]);
-      counter += step;
-      if (counter >= duration) {
-        clearInterval(interval);
-        const finalIdx = Math.floor(Math.random() * arisanVolunteers.length);
-        const winner = arisanVolunteers[finalIdx];
-        setCurrentSelectedSpinnerName(winner);
-        setArisanWinner(winner);
-        setIsArisanSpinning(false);
-        
-        const descriptions: Record<number, string> = {
-          0: "Misionaris Kebersihan! Sapu-sapu di rill lapangan adalah wujud kepedulian sejati. Ingat, tinggalkan kesan terbaik!",
-          1: "Malaikat Energi! Beli kopi manis adalah penyumbang nafas tambahan bertenaga tinggi bagi rekan panggung.",
-          2: "Kurator Tawa! Foto candid panitia lecek akan bernilai sejarah tinggi saat tim tertawa mengenangnya kelak.",
-          3: "Duta Kehangatan! Memberi sapaan ramah di meja depan adalah 50% kemenangan psikologis kenyamanan audiens.",
-          4: "Pahlawan Senyap! Merapikan gulungan kabel mencegah insiden tersandung yang berisiko mengacaukan mood tim.",
-          5: "Pilar Gotong Royong! Mengangkat kursi bukan beban otot belaka, melainkan penyangga fondasi fisik acara kita!"
-        };
-        setArisanExplanation(descriptions[selectedArisanTaskIndex] || "Tugas mulia untuk kejayaan bersama!");
-        toast.success(`🎉 Selamat kepada ${winner}! Mengemban amanah suci: "${arisanTasks[selectedArisanTaskIndex].title}"`);
-      }
-    }, step);
-  };
-
-  const handleAddArisanVolunteer = () => {
-    if (!newArisanInput.trim()) return;
-    if (arisanVolunteers.includes(newArisanInput.trim())) {
-      toast.error("Nama relawan sudah ada di daftar kocokan!");
-      return;
-    }
-    setArisanVolunteers([...arisanVolunteers, newArisanInput.trim()]);
-    setNewArisanInput('');
-    toast.success(`👤 ${newArisanInput} ditambahkan ke roda kocokan.`);
-  };
-
-  const handleRemoveArisanVolunteer = (name: string) => {
-    setArisanVolunteers(arisanVolunteers.filter(v => v !== name));
-    toast.info(`👤 ${name} dikeluarkan dari roda kocokan.`);
   };
 
   const analyzeTimeItem = (timeStr: string) => {
@@ -867,13 +529,7 @@ Dihasilkan oleh CommunityOS.
     setMentorAnswer(null);
     try {
       const { askMentorAboutBlueprint } = await import('../services/geminiService');
-      const ans = await askMentorAboutBlueprint(
-        blueprint,
-        question,
-        originalEventData,
-        completedRundownItems,
-        rundownFieldNotes
-      );
+      const ans = await askMentorAboutBlueprint(blueprint, question, originalEventData);
       setMentorAnswer(ans);
     } catch (err: any) {
       toast.error("Gagal mendiskusikan rencana dengan mentor.");
@@ -974,75 +630,6 @@ Dihasilkan secara otomatis oleh CommunityOS.
     }
   };
 
-  const handleExportToDrive = async () => {
-    const title = blueprint.event_meta.title;
-    const content = `# Blueprint Kegiatan: ${blueprint.event_meta.title}
-**Skala Gerakan:** ${blueprint.event_meta.scale_classification}
-**Organisasi/Mitra:** ${blueprint.event_meta.strategy}
-**Estimasi Budget:** Rp ${blueprint.event_meta.budget.toLocaleString('id-ID')}
-**Lokasi:** ${blueprint.event_meta.location}
-
-## 1. Rundown Acara (Operasional)
-${blueprint.operational.rundown.map(r => `- [${r.time}] ${r.task}`).join('\n')}
-
-## 2. Alokasi Budget Kesehatan
-${blueprint.operational.budget_allocation.map(b => `- ${b.item}: Rp ${b.amount.toLocaleString('id-ID')} (${b.label})`).join('\n')}
-
-## 3. Wellbeing Guard (Deteksi Burnout Tim)
-- **Tingkat Risiko:** ${blueprint.wellbeing_guard.risk_level}
-- **Analisis Kelelahan:** ${blueprint.wellbeing_guard.fatigue_analysis}
-- **Rekomendasi Tindakan:**
-${blueprint.wellbeing_guard.action_items.map(item => `  - ${item}`).join('\n')}
-
-## 4. Mitra Penjangkauan (Outreach)
-- **Rekomendasi Partner:** ${blueprint.outreach.local_partners.join(', ')}
-- **Draf Caption Instagram:**
-_${blueprint.outreach.ig_caption}_
-
----
-*Dibuat secara otomatis & manusiawi menggunakan CommunityOS Indonesia.*`;
-
-    setIsExportingToDrive(true);
-    setWorkspaceError(null);
-    setTimeout(() => {
-      try {
-        const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `CommunityOS_Blueprint_${title.replace(/\s+/g, '_')}.md`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        setDriveFileLink("#simulated-drive");
-        setDriveFileName(`CommunityOS_Blueprint_${title.replace(/\s+/g, '_')}.md`);
-        toast.success("✨ Berhasil mengunduh draf dokumen Markdown (.md) Anda secara taktis!");
-      } catch (err: any) {
-        toast.error("Gagal mengunduh berkas offline.");
-      } finally {
-        setIsExportingToDrive(false);
-      }
-    }, 1000);
-  };
-
-  const handleCreateGoogleForm = async (type: 'registrasi' | 'feedback') => {
-    setIsCreatingForm(true);
-    setFormTypeActive(type);
-    setWorkspaceError(null);
-    setGoogleFormResult(null);
-
-    setTimeout(() => {
-      const simulatedResult = {
-        responderUri: `#simulated-form-view-${type}`,
-        editUri: `#simulated-form-edit-${type}`,
-      };
-      setGoogleFormResult(simulatedResult);
-      toast.success(`✨ Mode Taktis: Cetak draf rancangan Google Form ${type === 'registrasi' ? 'Pendaftaran' : 'Evaluasi'} berhasil diaktifkan!`);
-      setIsCreatingForm(false);
-    }, 1200);
-  };
-
   const getScaleBadgeColor = (scale: string) => {
     switch (scale) {
       case 'Gerilya Scale': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
@@ -1052,20 +639,6 @@ _${blueprint.outreach.ig_caption}_
       default: return 'bg-slate-50 text-slate-600 border-slate-100';
     }
   };
-
-  if (!blueprint || !blueprint.event_meta) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-slate-100 rounded-[2.5rem] max-w-4xl mx-auto my-12 shadow-xl shadow-slate-100">
-        <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center text-2xl mb-4 animate-pulse">
-          💤
-        </div>
-        <h3 className="text-lg font-bold text-slate-800">Menunggu Draft Blueprint...</h3>
-        <p className="text-xs text-slate-500 font-medium mt-2 max-w-sm leading-relaxed">
-          Sistem belum menerima format blueprint yang lengkap dari AI. Silakan kustomisasi draf rancangan Anda kembali di atas untuk memuat ulang blueprint operasional.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-12 md:space-y-20 max-w-4xl mx-auto pb-48">
@@ -1151,13 +724,12 @@ _${blueprint.outreach.ig_caption}_
         </div>
 
         {/* Section Navigation Tabs */}
-        <div className="grid grid-cols-5 md:flex md:items-center gap-1 md:gap-1.5 py-1 border-t border-slate-50 pt-3 mt-1 w-full">
+        <div className="grid grid-cols-4 md:flex md:items-center gap-1 md:gap-1.5 py-1 border-t border-slate-50 pt-3 mt-1 w-full">
           {[
             { id: 'meta', label: 'Meta', icon: FileText },
             { id: 'operational', label: 'Operasional', icon: Settings2 },
             { id: 'wellbeing', label: 'Wellbeing', icon: HeartHandshake },
             { id: 'outreach', label: 'Outreach', icon: Share2 },
-            { id: 'workspace', label: 'Workspace', icon: Cloud },
           ].map((item, idx) => (
             <React.Fragment key={item.id}>
               <button
@@ -1171,7 +743,7 @@ _${blueprint.outreach.ig_caption}_
                 <item.icon className={`w-3.5 h-3.5 ${activeTab === item.id ? 'animate-pulse' : ''}`} />
                 <span className="truncate max-w-full">{item.label}</span>
               </button>
-              {idx < 4 && <div className="hidden md:block w-1 h-1 rounded-full bg-slate-200 flex-shrink-0" />}
+              {idx < 3 && <div className="hidden md:block w-1 h-1 rounded-full bg-slate-200 flex-shrink-0" />}
             </React.Fragment>
           ))}
         </div>
@@ -1937,268 +1509,6 @@ _${blueprint.outreach.ig_caption}_
                   </div>
                 </div>
               </section>
-
-              {/* === FITUR NYELENEH POSITIF: RAFFLE ARISAN & BENDA DARURAT === */}
-              <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8 border-t border-slate-100">
-                {/* 1. ARISAN PENYELAMAT ENERGI */}
-                <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-xl shadow-slate-100 border border-slate-100 space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-lg">
-                      🎪
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-bold text-slate-800 leading-snug">Arisan Penyelamat Energi</h4>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Kocokan Tugas Nyeleneh tapi Krusial</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                    Pusing membagi tugas akhir (beberes sampah, beli es kopi, gulung kabel) yang kurang populer? Gunakan <strong>Arisan Gembira</strong> ini untuk mengundi relawan pengemban amanah suci secara adil & penuh canda.
-                  </p>
-
-                  <div className="space-y-4">
-                    {/* Select Task */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">1. Pilih Amanah Suci:</label>
-                      <select 
-                        value={selectedArisanTaskIndex}
-                        onChange={(e) => {
-                          setSelectedArisanTaskIndex(Number(e.target.value));
-                          setArisanWinner(null);
-                          setArisanExplanation(null);
-                        }}
-                        className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                      >
-                        {arisanTasks.map((t, idx) => (
-                          <option key={idx} value={idx}>{t.icon} {t.title}</option>
-                        ))}
-                      </select>
-                      <p className="text-[11px] text-slate-400 font-medium italic pl-1">
-                        "{arisanTasks[selectedArisanTaskIndex].desc}"
-                      </p>
-                    </div>
-
-                    {/* Volunteers List */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                        <span>2. Daftar Nama Relawan ({arisanVolunteers.length}):</span>
-                        <span className="text-indigo-600 font-mono">0 Rupiah Transparency</span>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-1.5 p-3.5 bg-slate-55 border border-slate-200 rounded-2xl max-h-36 overflow-y-auto">
-                        <AnimatePresence>
-                          {arisanVolunteers.map((v) => (
-                            <motion.span
-                              key={v}
-                              layout
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.8 }}
-                              className="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm hover:border-indigo-200 transition-colors"
-                            >
-                              <span>{v}</span>
-                              <button 
-                                onClick={() => handleRemoveArisanVolunteer(v)} 
-                                className="text-slate-400 hover:text-red-500 font-black text-[10px] ml-0.5 cursor-pointer leading-none"
-                              >
-                                &times;
-                              </button>
-                            </motion.span>
-                          ))}
-                        </AnimatePresence>
-                        {arisanVolunteers.length === 0 && (
-                          <p className="text-[11px] text-slate-400 font-medium italic mx-auto">Nomor antrean kosong. Silakan ketik & tambah nama relawan di bawah...</p>
-                        )}
-                      </div>
-
-                      {/* Add Custom Volunteer Input */}
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          value={newArisanInput}
-                          onChange={(e) => setNewArisanInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleAddArisanVolunteer();
-                            }
-                          }}
-                          placeholder="Ketik nama relawan baru..."
-                          className="flex-1 text-xs px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/25 text-slate-700 bg-white"
-                        />
-                        <button
-                          onClick={handleAddArisanVolunteer}
-                          className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-100 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                        >
-                          Tambah
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Simulated Spinning & Result Box */}
-                    <div className="pt-4 border-t border-slate-100">
-                      <div className="bg-gradient-to-r from-indigo-50 to-indigo-50/40 border border-indigo-100 rounded-3xl p-6 flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-black uppercase text-indigo-600/70 tracking-widest block">Roda Kocokan Elektronik</span>
-                          <p className={`text-xl font-bold transition-all ${isArisanSpinning ? 'text-indigo-600 scale-110 animate-pulse' : arisanWinner ? 'text-emerald-600 text-2xl font-black' : 'text-slate-500 font-semibold'}`}>
-                            {isArisanSpinning ? `🔄 ${currentSelectedSpinnerName} 🔄` : arisanWinner ? `🎉 ${arisanWinner}!` : '💤 Siap Diguncang'}
-                          </p>
-                        </div>
-
-                        {arisanExplanation && (
-                          <div className="bg-white p-3 rounded-2xl border border-indigo-100 max-w-sm text-center text-xs text-slate-600 leading-relaxed font-semibold animate-in fade-in">
-                            <span className="font-extrabold text-indigo-500 block text-[10px] uppercase mb-1">Nasihat Penyelamat Energi:</span>
-                            "{arisanExplanation}"
-                          </div>
-                        )}
-
-                        <button
-                          disabled={isArisanSpinning || arisanVolunteers.length < 2}
-                          onClick={handleStartArisan}
-                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-slate-200 disabled:text-slate-400 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-md transition-all active:scale-[0.98] cursor-pointer"
-                        >
-                          {isArisanSpinning ? 'Sedang Mengocok...' : arisanVolunteers.length < 2 ? '⚠️ Tambah Minimal 2 Relawan' : '🎲 KLIK UNTUK GONCANG ARISAN'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. AMUNISI PECAH GELOMBANG & SKENARIO DARURAT */}
-                <div className="bg-white p-6 md:p-10 rounded-[2.5rem] shadow-xl shadow-slate-100 border border-slate-100 space-y-6 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-lg">
-                        🚒
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-bold text-slate-800 leading-snug">Pecah Gelombang & Skenario Darurat</h4>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Amunisi Satset Kejadian Tidak Terduga</p>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                      Di lapangan rill, keadaan tidak terduga sering memicu kepanikan dan menguras mental panitia. Aktifkan <strong>komando darurat</strong> di bawah ini untuk mengunduh solusi instan taktis 0 Rupiah secara gotong royong.
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {[
-                        { title: 'Hujan Deras / Padam Listrik', icon: '🌧️', color: 'hover:border-rose-300 hover:bg-rose-50/30' },
-                        { title: 'Pemateri / Trainer Terlambat', icon: '⏰', color: 'hover:border-amber-300 hover:bg-amber-50/30' },
-                        { title: 'Energi Peserta Drop / Mengantuk', icon: '😴', color: 'hover:border-indigo-300 hover:bg-indigo-50/30' },
-                        { title: 'Konsumsi Terlambat Datang', icon: '🍲', color: 'hover:border-emerald-300 hover:bg-emerald-50/30' }
-                      ].map((item, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setActiveEmergencyIndex(activeEmergencyIndex === idx ? null : idx);
-                            toast.info(`🚒 Membuka protokol darurat: "${item.title}"`);
-                          }}
-                          className={`p-3 border border-slate-200 rounded-2xl text-left text-xs font-bold text-slate-700 flex items-center gap-2.5 transition-all cursor-pointer ${item.color} ${activeEmergencyIndex === idx ? 'border-indigo-500 bg-indigo-50/40 ring-2 ring-indigo-500/10' : 'bg-slate-50/50'}`}
-                        >
-                          <span className="text-lg">{item.icon}</span>
-                          <span className="leading-tight">{item.title}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Active Emergency protokol info */}
-                    <AnimatePresence mode="wait">
-                      {activeEmergencyIndex !== null && (
-                        <motion.div
-                          key={activeEmergencyIndex}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="bg-amber-50/50 border border-amber-200 rounded-2xl p-5 space-y-3.5 text-slate-700"
-                        >
-                          {activeEmergencyIndex === 0 && (
-                            <>
-                              <div className="flex items-center gap-2 text-rose-700 font-bold text-xs uppercase">
-                                <span>🌧️ Protokol Badai Dadakan:</span>
-                              </div>
-                              <ul className="text-[11px] text-slate-600 font-semibold space-y-1.5 leading-relaxed">
-                                <li><strong>1. Keamanan Listrik:</strong> Putuskan kabel luar ruangan. Amankan genset/terminal di bawah terpal rapat.</li>
-                                <li><strong>2. Ruang Penggumpal (0 Rp):</strong> Masukkan peserta ke dalam kelas atau berdesakan ramah di teras sembari panitia memimpin obrolan hangat "Debat Tebak Gambar Alay".</li>
-                                <li><strong>3. Pivot Sound:</strong> Gunakan megaphone darurat (toa masjid/komunitas) untuk berteriak memimpin permainan rakyat tanpa listrik.</li>
-                              </ul>
-                            </>
-                          )}
-
-                          {activeEmergencyIndex === 1 && (
-                            <>
-                              <div className="flex items-center gap-2 text-amber-700 font-bold text-xs uppercase">
-                                <span>⏰ Protokol Pemateri Molor:</span>
-                              </div>
-                              <ul className="text-[11px] text-slate-600 font-semibold space-y-1.5 leading-relaxed">
-                                <li><strong>1. Isu Slotting (0 Rp):</strong> Tukar slot pemateri dengan sesi Q&A / diskusi kelompok kecil antar peserta terlebih dahulu.</li>
-                                <li><strong>2. Sharing Sesi Kehidupan:</strong> Minta salah satu relawan veteran menceritakan pengalaman gokil jatuh bangun di dunia komunitas. Ini membangun intimitas emosional.</li>
-                                <li><strong>3. Ice Breaking 'Debat Bubur Diaduk':</strong> Picu diskusi panas interaktif yang membagi ruangan menjadi kubu-kubu debat lucu demi membunuh kejenuhan.</li>
-                              </ul>
-                            </>
-                          )}
-
-                          {activeEmergencyIndex === 2 && (
-                            <>
-                              <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs uppercase">
-                                <span>😴 Protokol Energi Peserta Sayup:</span>
-                              </div>
-                              <ul className="text-[11px] text-slate-600 font-semibold space-y-1.5 leading-relaxed">
-                                <li><strong>1. Ice Break Pijat Sayang (0 Rp):</strong> Minta semua peserta berdiri, menghadap kanan, lalu memijat bahu teman depannya, dipimpin secara humoris.</li>
-                                <li><strong>2. Pertempuran Kertas Kusut (0 Rp):</strong> Remas selembar kertas sisa, lempar dalam ruangan secara estafet dalam gelap/terang. Siapa yang pegang kertas di akhir lagu wajib bernyanyi.</li>
-                                <li><strong>3. Udara Segar:</strong> Buka semua jendela lebar-lebar atau nyalakan kipas angin maksimal demi menyuplai oksigen segar ke paru-paru tertidur.</li>
-                              </ul>
-                            </>
-                          )}
-
-                          {activeEmergencyIndex === 3 && (
-                            <>
-                              <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs uppercase">
-                                <span>🍲 Protokol Kelaparan Massal (Catering Telat):</span>
-                              </div>
-                              <ul className="text-[11px] text-slate-600 font-semibold space-y-1.5 leading-relaxed">
-                                <li><strong>1. Alihkan Fokus:</strong> Putar musik jeda ceria atau fasilitasikan sesi "Pojok Curhat Pengalaman Lucu" antar meja.</li>
-                                <li><strong>2. Kopi & Es Teh Darurat:</strong> Sajikan biskuit sisa pendaftaran / sediaan kopi panggung demi memicu asam lambung tetap tenang untuk sementara.</li>
-                                <li><strong>3. Jujur Manusiawi (0 Rp):</strong> Gunakan mic secara transparan dengan nada jenak: "Teman-teman, kurir katering kami terjebak lampu merah. Kami mengapresiasi ketabahan usus rekan sekalian." Kejujuran meredakan 90% emosi.</li>
-                              </ul>
-                            </>
-                          )}
-
-                          <div className="pt-2 border-t border-amber-200/50 flex justify-end">
-                            <button
-                              onClick={() => {
-                                let label = '';
-                                if (activeEmergencyIndex === 0) label = "Hujan Deras / Padam Listrik";
-                                if (activeEmergencyIndex === 1) label = "Pemateri Terlambat";
-                                if (activeEmergencyIndex === 2) label = "Energi Peserta Drop / Mengantuk";
-                                if (activeEmergencyIndex === 3) label = "Konsumsi Terlambat Sangat";
-
-                                const query = `Acara kami (${blueprint.event_meta.title}) di wilayah ${blueprint.event_meta.location} terdampak darurat: "${label}". Di rill lapangan, budget tersisa minim. Bagaimana tim kami secara taktis, 0 Rupiah, dan hemat energi mengatasinya?`;
-                                setMentorQuestion(query);
-                                toast.success("💡 Pertanyaan darurat berhasil disisipkan ke kotak Tanya Mentor Lapangan di bawah! Gulir ke bawah untuk mengirim.");
-                                const el = document.getElementById('mentor-sparring-section');
-                                if (el) {
-                                  el.scrollIntoView({ behavior: 'smooth' });
-                                }
-                              }}
-                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-bold uppercase transition-transform active:scale-[0.95] cursor-pointer flex items-center gap-1.5 shadow-sm"
-                            >
-                              <span>💡</span>
-                              <span>Tanyakan Mentoring AI Khusus Acara Ini</span>
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-3xl mt-4">
-                    <span className="text-[9px] font-black uppercase text-rose-500 tracking-wider block mb-1">🎯 Prinsip Penyelamat Lapangan:</span>
-                    <p className="text-[11px] text-slate-400 font-medium italic leading-relaxed">
-                      "Di mata relawan, kesempurnaan dekorasi/materi bisa lupa. Namun, bagaimana panitia saling merangkul, tenang mengatasi kekacauan ceria di lapangan, akan membekas selamanya."
-                    </p>
-                  </div>
-                </div>
-              </section>
             </motion.div>
           )}
 
@@ -2300,7 +1610,7 @@ _${blueprint.outreach.ig_caption}_
                       <h3 className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Instagram Caption (Storytelling)</h3>
                       <button
                         onClick={() => copyToClipboard(blueprint.outreach.ig_caption, 'caption')}
-                        className="flex items-center gap-2 text-[9px] md:text-[10px] font-bold text-slate-400 hover:text-teal-600 uppercase tracking-widest transition-colors cursor-pointer"
+                        className="flex items-center gap-2 text-[9px] md:text-[10px] font-bold text-slate-400 hover:text-teal-600 uppercase tracking-widest transition-colors"
                       >
                         {copiedType === 'caption' ? <Check className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <Copy className="w-3.5 h-3.5 md:w-4 md:h-4" />}
                         <span>Salin</span>
@@ -2308,464 +1618,6 @@ _${blueprint.outreach.ig_caption}_
                     </div>
                     <div className="p-7 md:p-10 bg-slate-50/50 rounded-[2rem] md:rounded-[2.5rem] text-[13px] md:text-base text-slate-600 whitespace-pre-wrap font-sans border border-slate-100 leading-relaxed italic shadow-inner">
                       {blueprint.outreach.ig_caption}
-                    </div>
-                  </div>
-
-                  {/* MODUL JARKOM WHATSAPP TAKTIS */}
-                  <div className="pt-10 border-t border-slate-100 space-y-8">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">💬</span>
-                        <h3 className="text-base font-bold text-slate-800">WhatsApp Broadcast (Jarkom Taktis)</h3>
-                      </div>
-                      <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                        Susun draf siaran perpesanan Anda secara otomatis dengan standarisasi kode tebal (*bold*), miring (_italic_), dan emoji yang disesuaikan khusus untuk kenyamanan membaca di ponsel atau WhatsApp Web.
-                      </p>
-                    </div>
-
-                    {/* INTERACTIVE CONTROLS CONTAINER */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50/80 rounded-[2rem] border border-slate-100 shadow-inner">
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Narahubung Kegiatan</label>
-                        <input
-                          type="text"
-                          value={customWaContactName}
-                          onChange={(e) => setCustomWaContactName(e.target.value)}
-                          placeholder="Contoh: Kak Admin / Kak Humas"
-                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Tautan / Link Pendaftaran</label>
-                        <input
-                          type="text"
-                          value={customWaLink}
-                          onChange={(e) => setCustomWaLink(e.target.value)}
-                          placeholder="Contoh: https://bit.ly/DaftarKegiatan"
-                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    {/* TEMPLATE PICKER TABS */}
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setActiveWaTemplate('invitation')}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                          activeWaTemplate === 'invitation'
-                            ? 'bg-teal-600 text-white shadow-sm'
-                            : 'bg-white hover:bg-slate-50 text-slate-500 border border-slate-150'
-                        }`}
-                      >
-                        📬 Undangan Relawan
-                      </button>
-                      <button
-                        onClick={() => setActiveWaTemplate('rundown')}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                          activeWaTemplate === 'rundown'
-                            ? 'bg-teal-600 text-white shadow-sm'
-                            : 'bg-white hover:bg-slate-50 text-slate-500 border border-slate-150'
-                        }`}
-                      >
-                        📅 Agenda Rundown
-                      </button>
-                      <button
-                        onClick={() => setActiveWaTemplate('announcement')}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                          activeWaTemplate === 'announcement'
-                            ? 'bg-teal-600 text-white shadow-sm'
-                            : 'bg-white hover:bg-slate-50 text-slate-500 border border-slate-150'
-                        }`}
-                      >
-                        ⚡ Info Hari-H
-                      </button>
-                      <button
-                        onClick={() => setActiveWaTemplate('gratitude')}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                          activeWaTemplate === 'gratitude'
-                            ? 'bg-teal-600 text-white shadow-sm'
-                            : 'bg-white hover:bg-slate-50 text-slate-500 border border-slate-150'
-                        }`}
-                      >
-                        💖 Apresiasi Pasca Acara
-                      </button>
-                    </div>
-
-                    {/* PLAYGROUND: CODES AND CHAT BUBBLE PREVIEW */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-2">
-                      
-                      {/* PANELS 1: THE RAW SCRIPT WITH WHATSAPP WILDCARDS */}
-                      <div className="flex flex-col space-y-4">
-                        <div className="flex justify-between items-center px-1">
-                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Draf Draft Salin (Syntax WA)</span>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                const waText = getWaBroadcastText(activeWaTemplate);
-                                const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`;
-                                window.open(waUrl, '_blank');
-                                toast.success("Membuka aplikasi WhatsApp...");
-                              }}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors border border-emerald-200 cursor-pointer"
-                            >
-                              <SendHorizontal className="w-3 h-3" />
-                              Kirim ke WA
-                            </button>
-                            <button
-                              onClick={() => copyToClipboard(getWaBroadcastText(activeWaTemplate), 'Jarkom WhatsApp')}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors border border-slate-200 cursor-pointer"
-                            >
-                              {copiedType === 'Jarkom WhatsApp' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                              {copiedType === 'Jarkom WhatsApp' ? "Tersalin!" : "Salin Teks"}
-                            </button>
-                          </div>
-                        </div>
-
-                        <textarea
-                          readOnly
-                          value={getWaBroadcastText(activeWaTemplate)}
-                          className="w-full h-96 p-5 bg-slate-100 text-[11px] md:text-xs font-mono text-slate-700 rounded-2xl border border-slate-200/60 leading-relaxed font-semibold focus:outline-none select-all resize-none shadow-inner"
-                        />
-                      </div>
-
-                      {/* PANELS 2: WHATSAPP ACTIVE CHAT BUBBLE SIMULATOR */}
-                      <div className="flex flex-col space-y-4">
-                        <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Simulasi Tampilan di Handphone</span>
-                        
-                        <div className="w-full rounded-[2rem] border border-slate-200 overflow-hidden shadow-md flex flex-col h-96 bg-[#efeae2] relative">
-                          
-                          {/* REALISTIC CHAT STATUS HEADER */}
-                          <div className="bg-[#075e54] text-white px-5 py-3 flex items-center justify-between shadow-md z-15">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-[#128c7e] text-white font-bold text-xs flex items-center justify-center border border-emerald-300">
-                                OS
-                              </div>
-                              <div>
-                                <h4 className="text-[11px] md:text-xs font-bold leading-none">CommunityOS Field Mentor</h4>
-                                <span className="text-[9px] text-teal-100 font-medium">online & siap jarkom</span>
-                              </div>
-                            </div>
-                            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          </div>
-
-                          {/* SCROLLABLE BG CHAT PANEL */}
-                          <div className="flex-1 p-4 overflow-y-auto space-y-4 flex flex-col justify-start select-none">
-                            <div className="self-center bg-[#ffeeca] text-[#634e2c] border border-[#f5e0b0] text-[9px] font-semibold px-3 py-1 rounded-lg text-center shadow-sm max-w-[85%]">
-                              🔐 Pesan di bawah ini disimulasikan sesuai dengan konversi parser otomatis teks WhatsApp Anda.
-                            </div>
-
-                            {/* CHAT BUBBLE SENDER */}
-                            <div className="self-start max-w-[90%] bg-white rounded-r-2xl rounded-bl-2xl rounded-tl-sm p-4 text-[12px] md:text-xs text-slate-800 leading-relaxed shadow-sm relative border border-slate-100 flex flex-col space-y-2">
-                              {/* TRIANGLE SPEECH BUBBLE CORNER POINT ACCENT */}
-                              <div className="absolute -left-1.5 top-0 w-0 h-0 border-t-[8px] border-t-white border-l-[8px] border-l-transparent" />
-                              
-                              <div className="text-[11px] font-extrabold text-teal-600 pb-1 border-b border-slate-50">
-                                ~ Panitia Broadcast
-                              </div>
-
-                              <div className="space-y-1 font-sans text-slate-700 whitespace-pre-wrap">
-                                {renderWhatsAppFormattedText(getWaBroadcastText(activeWaTemplate))}
-                              </div>
-
-                              {/* TIME STAMP WITH BLUE TICK */}
-                              <div className="self-end flex items-center gap-1.5 pt-1">
-                                <span className="text-[9px] text-slate-400 font-semibold font-mono">17.00</span>
-                                <div className="flex items-center text-[#34b7f1]">
-                                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                                  </svg>
-                                </div>
-                              </div>
-                            </div>
-
-                          </div>
-                        </div>
-
-                      </div>
-
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </motion.div>
-          )}
-
-          {activeTab === 'workspace' && (
-            <motion.div
-              key="workspace"
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              className="space-y-8 md:space-y-12"
-            >
-              <section className="bg-white p-7 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm border border-slate-100 space-y-10 md:space-y-14 animate-fade-in">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-6 border-b border-slate-150">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl md:rounded-[1.5rem] bg-indigo-50 flex items-center justify-center">
-                      <Cloud className="w-6 h-6 md:w-7 md:h-7 text-indigo-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl md:text-2xl font-display font-semibold text-slate-800">Workspace &amp; Formulir Taktis</h2>
-                      <p className="text-xs text-slate-400 font-medium">Salin draf kuesioner Google Form ideal rancangan AI secara aman, efisien, dan selaras dengan prinsip kesejahteraan (Wellbeing Guard) komunitas.</p>
-                    </div>
-                  </div>
-                  
-                  {/* Mode Badge */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-3 bg-teal-50 px-4 py-2 rounded-2xl border border-teal-100">
-                      <div className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse" />
-                      <span className="text-xs font-bold text-teal-700 tracking-wide uppercase">Dapur Taktis Aktif</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-10">
-                  {/* METRIC / OFF-LINE EXPORTER CARDS */}
-                  <div className="bg-slate-50/50 p-6 md:p-8 rounded-[2rem] border border-slate-100/80 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-inner">
-                    <div className="space-y-2 max-w-xl text-left">
-                      <div className="flex items-center gap-2 text-teal-700">
-                        <HardDrive className="w-5 h-5" />
-                        <h3 className="text-sm font-bold uppercase tracking-wider">Simpan Draf Blueprint Offline</h3>
-                      </div>
-                      <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-                        Unduh salinan berkas draf blueprint operasional terstruktur di atas ke dalam file berformat Markdown (.md). Sangat ramah dibahas saat rapat kilat bersama koordinator, disunting ulang, dan disimpan.
-                      </p>
-                    </div>
-
-                    <div className="min-w-[200px]">
-                      {driveFileLink ? (
-                        <div className="p-3 bg-teal-50 text-teal-800 rounded-xl space-y-1 border border-teal-100 text-left mb-3">
-                          <p className="text-[9px] font-extrabold uppercase tracking-widest flex items-center gap-1">
-                            <CheckSquare className="w-3 h-3" /> Berhasil Tersimpan!
-                          </p>
-                          <p className="text-[10px] font-bold truncate max-w-[180px]">{driveFileName}</p>
-                        </div>
-                      ) : null}
-
-                      <button
-                        onClick={handleExportToDrive}
-                        disabled={isExportingToDrive}
-                        className={`w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border cursor-pointer ${
-                          isExportingToDrive
-                            ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
-                            : 'bg-teal-600 border-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-50 hover:-translate-y-0.5 active:translate-y-0'
-                        }`}
-                      >
-                        {isExportingToDrive ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-                            <span>Mengunduh...</span>
-                          </>
-                        ) : (
-                          <>
-                            <FileDown className="w-4 h-4" />
-                            <span>Download Markdown Blueprint</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* GOOGLE FORM BUILDER INTRODUCTION & WORKFLOW TUTORIAL */}
-                  <div className="space-y-8">
-                    <div className="space-y-2 text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">📋</span>
-                        <h3 className="text-base font-bold text-slate-800">Draf Struktur Google Form Paling Ideal (Salin 1-Per-1)</h3>
-                      </div>
-                      <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                        Kami merancang draf isian formulir terbaik berbasis prinsip kemanusiaan & gotong-royong. Anda tidak dibatasi oleh integrasi API ataupun kolom data. Cukup gunakan alur kerja efisien di bawah ini untuk menyusun Google Forms Anda sendiri dalam hitungan menit!
-                      </p>
-                    </div>
-
-                    <div className="bg-amber-50/65 p-5 sm:p-6 rounded-2xl border border-amber-250/50 space-y-3 text-left">
-                      <h4 className="text-xs font-bold text-amber-800 flex items-center gap-2">
-                        <span className="text-sm">💡</span> Trik Taktis Pengisian Google Form Super Cepat:
-                      </h4>
-                      <ol className="text-[11px] font-medium text-amber-700 space-y-2 list-decimal list-inside leading-relaxed">
-                        <li>Buka Google Forms di tab baru (<a href="https://docs.google.com/forms" target="_blank" rel="noreferrer" className="underline font-bold hover:text-amber-900 cursor-pointer">docs.google.com/forms</a>).</li>
-                        <li>Pilih draf formulir di bawah ini <strong>(Form Pendaftaran atau Form Evaluasi)</strong>.</li>
-                        <li>Klik <span className="underline italic">"Salin Judul"</span> atau <span className="underline italic">"Salin Deskripsi"</span> lalu tempel (paste) langsung ke lembar kerja Google Forms Anda.</li>
-                        <li><strong>Fitur Hemat Waktu:</strong> Untuk pilihan ganda, cukup klik tombol <span className="bg-amber-100/80 text-amber-900 px-1.5 py-0.5 rounded font-bold">Salin Semua Opsi (Multi-Line)</span> dan tempelkan (paste) di baris isian Option 1 Google Forms Anda. Sistem Google Forms akan otomatis memecah isian tersebut menjadi pilihan ganda yang rapi!</li>
-                        <li>Centang tombol <span className="italic">"Tersalin"</span> di samping kiri untuk memantau pengerjaan Anda agar tidak ada kolom yang terlewat.</li>
-                      </ol>
-                    </div>
-
-                    {/* SELECTOR FOR ACTIVE FORM TYPE */}
-                    <div className="flex border-b border-slate-150">
-                      <button
-                        onClick={() => setFormTypeActive('registrasi')}
-                        className={`px-6 py-3.5 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${
-                          formTypeActive === 'registrasi'
-                            ? 'text-indigo-600 border-b-2 border-indigo-600 font-extrabold'
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        📬 Form Pendaftaran & Mobilisasi Relawan ({getCustomFormFields('registrasi').length} Kolom Penting)
-                      </button>
-                      <button
-                        onClick={() => setFormTypeActive('feedback')}
-                        className={`px-6 py-3.5 text-xs font-bold uppercase tracking-wider relative transition-all cursor-pointer ${
-                          formTypeActive === 'feedback'
-                            ? 'text-indigo-600 border-b-2 border-indigo-600 font-extrabold'
-                            : 'text-slate-400 hover:text-slate-600'
-                        }`}
-                      >
-                        📊 Form Evaluasi & Kesehatan Tim ({getCustomFormFields('feedback').length} Kolom Penting)
-                      </button>
-                    </div>
-
-                    {/* DYNAMIC LIST OF FIELDS */}
-                    <div className="space-y-6 text-left">
-                      {getCustomFormFields(formTypeActive).map((field, idx) => {
-                        const isCopied = !!copiedFormFields[field.id];
-                        const toggleFieldCopied = (fieldId: string) => {
-                          setCopiedFormFields(prev => ({ ...prev, [fieldId]: !prev[fieldId] }));
-                        };
-
-                        return (
-                          <div 
-                            key={field.id}
-                            className={`p-6 sm:p-8 rounded-[1.8rem] border transition-all ${
-                              isCopied 
-                                ? 'bg-slate-50/80 border-slate-250 opacity-75 shadow-inner' 
-                                : 'bg-white border-slate-100 shadow-md shadow-slate-100/50 hover:border-indigo-150'
-                            }`}
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                              <div className="flex items-start gap-4 flex-1">
-                                {/* Workflow Checklist box */}
-                                <button
-                                  type="button"
-                                  onClick={() => toggleFieldCopied(field.id)}
-                                  className={`mt-1 flex items-center justify-center w-6 h-6 rounded-lg border transition-all cursor-pointer shrink-0 ${
-                                    isCopied
-                                      ? 'bg-emerald-500 border-emerald-500 text-white'
-                                      : 'bg-white border-slate-200 hover:border-slate-300 text-transparent'
-                                  }`}
-                                  title="Tandai Kolom Ini Sebagai Tersalin ke Google Forms"
-                                >
-                                  <Check className="w-4 h-4 stroke-[3.5px]" />
-                                </button>
-                                
-                                <div className="space-y-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Kolom #{idx + 1}</span>
-                                    <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                      {field.type}
-                                    </span>
-                                    {field.required === 'Ya' ? (
-                                      <span className="bg-red-50 border border-red-100 text-red-600 text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-widest">
-                                        Wajib Diisi
-                                      </span>
-                                    ) : (
-                                      <span className="bg-slate-50 border border-slate-100 text-slate-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                        Opsional
-                                      </span>
-                                    )}
-                                  </div>
-                                  
-                                  <h4 className="text-base font-bold text-slate-800 leading-snug pt-1">
-                                    {field.title}
-                                  </h4>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2 sm:self-start">
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(field.title);
-                                    toast.success("Judul pertanyaan berhasil disalin.");
-                                    if (!isCopied) toggleFieldCopied(field.id);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100/80 text-indigo-700 text-[10px] font-bold uppercase tracking-wider rounded-xl transition-colors cursor-pointer border border-indigo-100 whitespace-nowrap"
-                                >
-                                  <Copy className="w-3.5 h-3.5" />
-                                  <span>Salin Judul</span>
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* HELP TEXT / DESCRIPTION segment */}
-                            {field.description && (
-                              <div className="mt-4 p-4 bg-slate-50/50 border border-slate-100 rounded-xl space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Teks Keterangan / Deskripsi Form:</span>
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(field.description);
-                                      toast.success("Deskripsi pertanyaan berhasil disalin.");
-                                    }}
-                                    className="text-[9px] font-bold text-slate-500 hover:text-indigo-600 uppercase tracking-wider flex items-center gap-1 cursor-pointer"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                    <span>Salin Deskripsi</span>
-                                  </button>
-                                </div>
-                                <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                                  {field.description}
-                                </p>
-                              </div>
-                            )}
-
-                            {/* OPTIONS segment if choices exist */}
-                            {field.options && field.options.length > 0 && (
-                              <div className="mt-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Opsi Pilihan Ganda:</span>
-                                  <button
-                                    onClick={() => {
-                                      const text = field.options.join('\n');
-                                      navigator.clipboard.writeText(text);
-                                      toast.success("Opsi tersalin! Pilih Option 1 di Google Forms dan paste langsung.");
-                                    }}
-                                    className="p-1 px-3 bg-teal-50 hover:bg-teal-100/80 text-teal-700 border border-teal-150 text-[10px] font-bold uppercase rounded-xl tracking-wider flex items-center gap-1.5 cursor-pointer transition-colors"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                    <span>Salin Semua Opsi (Multi-Line)</span>
-                                  </button>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {field.options.map((opt, i) => (
-                                    <div 
-                                      key={i}
-                                      className="px-3 py-1.5 bg-slate-150/60 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200/50 flex items-center gap-2"
-                                    >
-                                      <span>{opt}</span>
-                                      <button 
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(opt);
-                                          toast.success("Opsi tersalin.");
-                                        }}
-                                        className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                                        title="Salin opsi ini saja"
-                                      >
-                                        <Copy className="w-2.5 h-2.5" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* WORKFLOW FOOTER */}
-                            <div className="mt-4 pt-4 border-t border-slate-150 flex justify-between items-center text-[10px]">
-                              <span className="font-semibold text-slate-400">
-                                {isCopied ? "✔️ Tersalin & terisi di Google Forms Anda" : "⏳ Menanti proses salin..."}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => toggleFieldCopied(field.id)}
-                                className={`font-bold uppercase tracking-wider hover:underline cursor-pointer ${
-                                  isCopied ? 'text-slate-400' : 'text-indigo-600'
-                                }`}
-                              >
-                                {isCopied ? "Tandai Belum Selesai" : "Tandai Sudah Selesai"}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
                     </div>
                   </div>
                 </div>
@@ -2780,7 +1632,6 @@ _${blueprint.outreach.ig_caption}_
 
         {/* Tanya Mentor AI - Interactive Consultation Segment */}
         <motion.section
-          id="mentor-sparring-section"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-7 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl shadow-indigo-900/5 border border-indigo-100/50 space-y-8 md:space-y-10 relative overflow-hidden"
@@ -2793,22 +1644,7 @@ _${blueprint.outreach.ig_caption}_
                 <HeartHandshake className="w-6 h-6 md:w-7 md:h-7 text-indigo-600" />
               </div>
               <div className="space-y-0.5 md:space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="bg-indigo-100 text-indigo-800 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full inline-block">Fitur Sparring</span>
-                  {(() => {
-                    const completedCount = Object.values(completedRundownItems).filter(Boolean).length;
-                    const notesCount = Object.values(rundownFieldNotes).filter(n => n.trim().length > 0).length;
-                    if (completedCount > 0 || notesCount > 0) {
-                      return (
-                        <span className="bg-emerald-50 text-emerald-700 text-[9px] font-bold border border-emerald-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1.5 animate-pulse">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                          AI Terkoneksi: {completedCount} Agenda Selesai & {notesCount} Catatan Lapangan
-                        </span>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
+                <span className="bg-indigo-100 text-indigo-800 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full inline-block">Fitur Sparring</span>
                 <h2 className="text-xl md:text-3xl font-display font-semibold text-slate-800">Tanya Mentor Lapangan</h2>
                 <p className="text-[11px] md:text-sm text-slate-400 font-medium leading-relaxed italic">"Diskusikan keraguan, minimalkan burnout, dan temukan solusi taktis hemat biaya"</p>
               </div>

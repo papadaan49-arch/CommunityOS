@@ -85,7 +85,7 @@ service cloud.firestore {
         (existing().ownerId == request.auth.uid || request.auth.uid in existing().get('collaborators', [])) 
         && incoming().ownerId == existing().ownerId
         && incoming().createdAt == existing().createdAt
-        && incoming().diff(existing()).affectedKeys().hasOnly(['data', 'originalData', 'collaborators', 'isPublic', 'updatedAt', 'realizationStatus', 'realizationDetails', 'rundownChecklist', 'rundownNotes'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['data', 'originalData', 'collaborators', 'isPublic', 'updatedAt'])
       );
 
       allow delete: if isValidId(blueprintId) && isOwner(existing().ownerId);

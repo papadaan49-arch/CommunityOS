@@ -544,8 +544,8 @@ export default function App() {
               exit={{ opacity: 0, y: -15 }}
               className="space-y-16 md:space-y-28"
             >
-              <header className="space-y-6 md:space-y-8 text-center md:text-left">
-                <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-10">
+              <header className="space-y-6 md:space-y-8 text-center flex flex-col items-center">
+                <div className="flex flex-col items-center gap-4">
                   <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -553,17 +553,17 @@ export default function App() {
                   >
                     <BrandLogo size="md md:lg" />
                   </motion.div>
-                  <div className="space-y-3 md:space-y-4">
+                  <div className="space-y-3 md:space-y-4 flex flex-col items-center">
                     <div className="inline-flex items-center gap-2 bg-teal-50 text-teal-700 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-semibold uppercase tracking-widest border border-teal-100/50">
                       <Sparkles className="w-3 md:w-3.5 h-3 md:h-3.5" />
                       Your Strategic Sparring Partner
                     </div>
-                    <h1 className="text-3xl md:text-6xl font-display font-bold text-slate-900 tracking-tight leading-[1.2] md:leading-[1.1]">
+                    <h1 className="text-3xl md:text-6xl font-display font-bold text-slate-900 tracking-tight leading-[1.2] md:leading-[1.1] text-center">
                       Halo, Rekan Perjuangan! 👋
                     </h1>
                   </div>
                 </div>
-                <p className="text-slate-600 text-base md:text-xl leading-[1.7] md:leading-[1.8] max-w-xl mx-auto md:mx-0">
+                <p className="text-slate-600 text-base md:text-xl leading-[1.7] md:leading-[1.8] max-w-2xl mx-auto text-center">
                   Sistem operasi komunitas yang dirancang untuk menjadi teman diskusi strategismu. Jelajahi blueprint yang logis, grounded, dan dilengkapi <span className="text-teal-600 font-semibold">Wellbeing Guard</span> demi keberlanjutan bersama.
                 </p>
               </header>

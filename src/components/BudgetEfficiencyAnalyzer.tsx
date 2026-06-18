@@ -280,18 +280,18 @@ export const BudgetEfficiencyAnalyzer: React.FC<Props> = ({ blueprint }) => {
       </div>
 
       {/* Interactive What-If Optimization Simulator */}
-      <div className="bg-teal-950 text-white rounded-2xl md:rounded-[2rem] p-6 md:p-8 space-y-6 relative overflow-hidden shadow-xl shadow-teal-900/10 border border-teal-800">
+      <div className="bg-slate-50 border border-slate-200/60 text-slate-800 rounded-2xl md:rounded-[2rem] p-6 md:p-8 space-y-6 relative overflow-hidden shadow-sm">
         {/* Decorative background circle */}
-        <div className="absolute top-0 right-0 w-48 h-48 bg-teal-500/5 blur-[50px] -mr-16 -mt-16" />
+        <div className="absolute top-0 right-0 w-48 h-48 bg-teal-100/30 blur-[50px] -mr-16 -mt-16 pointer-events-none" />
 
         <div className="space-y-2 relative">
-          <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-300 border border-teal-500/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider mb-2">
+          <div className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-700 border border-teal-100 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider mb-2">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Gerilya Simulator Hemat</span>
           </div>
-          <h4 className="text-lg font-bold font-display leading-tight">Simulasi Rencana Penghematan Alternatif</h4>
-          <p className="text-xs text-teal-300/80 leading-relaxed md:max-w-2xl">
-            Aktifkan strategi taktis gotong royong khas Gerilya Mode untuk melihat seberapa jauh kita bisa memangkas biaya operasional tanpa menurunkan motivasi relawan.
+          <h4 className="text-lg font-bold font-display text-slate-800 leading-tight">Simulasi Rencana Penghematan Alternatif</h4>
+          <p className="text-xs text-slate-600 leading-relaxed md:max-w-2xl">
+            Aktifkan strategi taktis gotong royong khas Gerilya Mode untuk melihat seberapa jauh kita bisa memangkas biaya operasional tanpa menurunkan motivasi relawan secara nyata.
           </p>
         </div>
 
@@ -301,21 +301,21 @@ export const BudgetEfficiencyAnalyzer: React.FC<Props> = ({ blueprint }) => {
             onClick={() => setUseVolunteersCook(!useVolunteersCook)}
             className={`p-4 rounded-xl border text-left transition-all flex justify-between items-start cursor-pointer select-none ${
               useVolunteersCook
-                ? 'bg-teal-900/30 border-teal-500 text-white'
-                : 'bg-teal-950/40 border-teal-900/50 hover:border-teal-800 text-teal-100/70'
+                ? 'bg-teal-50 border-teal-500 text-slate-800 shadow-sm'
+                : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50/50'
             }`}
           >
-            <div className="space-y-1 max-w-[80%]">
-              <div className="flex items-center gap-1.5 font-bold text-xs">
+            <div className="space-y-1 max-w-[85%]">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
                 <span>🍲</span>
                 <span>Masak Mandiri Relawan</span>
               </div>
-              <p className="text-[10px] opacity-70 leading-relaxed">
-                Manfaatkan partisipasi pasokan sembako dari simpatisan dan masak masakan lokal mandiri.
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Manfaatkan partisipasi pasokan sembako dari simpatisan dan masak masakan lokal mandiri bersama warga.
               </p>
             </div>
-            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 mt-0.5 ${
-              useVolunteersCook ? 'bg-teal-500 border-teal-400 text-white' : 'border-teal-800'
+            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 mt-0.5 ${
+              useVolunteersCook ? 'bg-teal-600 border-teal-500 text-white' : 'border-slate-300 bg-white'
             }`}>
               {useVolunteersCook && <Check className="w-3.5 h-3.5" />}
             </div>
@@ -326,21 +326,21 @@ export const BudgetEfficiencyAnalyzer: React.FC<Props> = ({ blueprint }) => {
             onClick={() => setUsePublicVenue(!usePublicVenue)}
             className={`p-4 rounded-xl border text-left transition-all flex justify-between items-start cursor-pointer select-none ${
               usePublicVenue
-                ? 'bg-teal-900/30 border-teal-500 text-white'
-                : 'bg-teal-950/40 border-teal-900/50 hover:border-teal-800 text-teal-100/70'
+                ? 'bg-teal-50 border-teal-500 text-slate-800 shadow-sm'
+                : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50/50'
             }`}
           >
-            <div className="space-y-1 max-w-[80%]">
-              <div className="flex items-center gap-1.5 font-bold text-xs">
+            <div className="space-y-1 max-w-[85%]">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
                 <span>🎪</span>
                 <span>Balai Warga / Fasilitas Publik</span>
               </div>
-              <p className="text-[10px] opacity-70 leading-relaxed">
+              <p className="text-[10px] text-slate-500 leading-relaxed">
                 Gunakan pekarangan kosong, balai RT/RW, aula sekolah, atau sekretariat bersama ber-skema barter sosial.
               </p>
             </div>
-            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 mt-0.5 ${
-              usePublicVenue ? 'bg-teal-500 border-teal-400 text-white' : 'border-teal-800'
+            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 mt-0.5 ${
+              usePublicVenue ? 'bg-teal-600 border-teal-500 text-white' : 'border-slate-300 bg-white'
             }`}>
               {usePublicVenue && <Check className="w-3.5 h-3.5" />}
             </div>
@@ -351,21 +351,21 @@ export const BudgetEfficiencyAnalyzer: React.FC<Props> = ({ blueprint }) => {
             onClick={() => setUseDigitalFlyer(!useDigitalFlyer)}
             className={`p-4 rounded-xl border text-left transition-all flex justify-between items-start cursor-pointer select-none ${
               useDigitalFlyer
-                ? 'bg-teal-900/30 border-teal-500 text-white'
-                : 'bg-teal-950/40 border-teal-900/50 hover:border-teal-800 text-teal-100/70'
+                ? 'bg-teal-50 border-teal-500 text-slate-800 shadow-sm'
+                : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50/50'
             }`}
           >
-            <div className="space-y-1 max-w-[80%]">
-              <div className="flex items-center gap-1.5 font-bold text-xs">
+            <div className="space-y-1 max-w-[85%]">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
                 <span>📢</span>
                 <span>Kampanye Digital & QR (No Print)</span>
               </div>
-              <p className="text-[10px] opacity-70 leading-relaxed">
+              <p className="text-[10px] text-slate-500 leading-relaxed">
                 Alihkan cetakan kertas murni ke file digital, broadcast medsos, dan 1 banner induk dengan QR Code dinamis.
               </p>
             </div>
-            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 mt-0.5 ${
-              useDigitalFlyer ? 'bg-teal-500 border-teal-400 text-white' : 'border-teal-800'
+            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 mt-0.5 ${
+              useDigitalFlyer ? 'bg-teal-600 border-teal-500 text-white' : 'border-slate-300 bg-white'
             }`}>
               {useDigitalFlyer && <Check className="w-3.5 h-3.5" />}
             </div>
@@ -376,21 +376,21 @@ export const BudgetEfficiencyAnalyzer: React.FC<Props> = ({ blueprint }) => {
             onClick={() => setUseCarpool(!useCarpool)}
             className={`p-4 rounded-xl border text-left transition-all flex justify-between items-start cursor-pointer select-none ${
               useCarpool
-                ? 'bg-teal-900/30 border-teal-500 text-white'
-                : 'bg-teal-950/40 border-teal-900/50 hover:border-teal-800 text-teal-100/70'
+                ? 'bg-teal-50 border-teal-500 text-slate-800 shadow-sm'
+                : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700 hover:bg-slate-50/50'
             }`}
           >
-            <div className="space-y-1 max-w-[80%]">
-              <div className="flex items-center gap-1.5 font-bold text-xs">
+            <div className="space-y-1 max-w-[85%]">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
                 <span>🚗</span>
                 <span>Carpool & Saling Jemput</span>
               </div>
-              <p className="text-[10px] opacity-70 leading-relaxed">
+              <p className="text-[10px] text-slate-500 leading-relaxed">
                 Kelompokkan akomodasi relawan searah rute transportasi, tebengan motor, atau sewa minibus bersama.
               </p>
             </div>
-            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 mt-0.5 ${
-              useCarpool ? 'bg-teal-500 border-teal-400 text-white' : 'border-teal-800'
+            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 mt-0.5 ${
+              useCarpool ? 'bg-teal-600 border-teal-500 text-white' : 'border-slate-300 bg-white'
             }`}>
               {useCarpool && <Check className="w-3.5 h-3.5" />}
             </div>
@@ -398,28 +398,28 @@ export const BudgetEfficiencyAnalyzer: React.FC<Props> = ({ blueprint }) => {
         </div>
 
         {/* Live Simulation Outcomes Bar */}
-        <div className="border-t border-teal-800 pt-6 mt-2 grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+        <div className="border-t border-slate-200 pt-6 mt-2 grid grid-cols-1 md:grid-cols-3 gap-6 relative">
           <div>
-            <span className="text-[9px] font-black tracking-widest text-teal-400 uppercase">Rencana Awal</span>
-            <p className="text-xl font-bold font-mono text-slate-300">Rp {totalAllocated.toLocaleString('id-ID')}</p>
+            <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase">Rencana Awal</span>
+            <p className="text-xl font-bold font-mono text-slate-700">Rp {totalAllocated.toLocaleString('id-ID')}</p>
           </div>
 
           <div>
-            <span className="text-[9px] font-black tracking-widest text-teal-400 uppercase">Simulasi Anggaran Baru</span>
-            <p className="text-xl font-black font-mono text-teal-300">Rp {totalSimulated.toLocaleString('id-ID')}</p>
+            <span className="text-[9px] font-black tracking-widest text-indigo-500 uppercase">Simulasi Anggaran Baru</span>
+            <p className="text-xl font-black font-mono text-indigo-600">Rp {totalSimulated.toLocaleString('id-ID')}</p>
           </div>
 
-          <div className="p-4 bg-teal-900/40 rounded-xl border border-teal-500/20 flex flex-col justify-center">
+          <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col justify-center">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-1">
-                <TrendingDown className="w-4 h-4 text-emerald-400" />
-                <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">HEMAT DANA</span>
+                <TrendingDown className="w-4 h-4 text-emerald-600" />
+                <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">HEMAT DANA</span>
               </div>
-              <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">
+              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-mono">
                 {totalAllocated > 0 ? ((totalSavings / totalAllocated) * 100).toFixed(0) : 0}% OFF
               </span>
             </div>
-            <p className="text-lg font-black font-mono text-emerald-300 mt-1">
+            <p className="text-lg font-black font-mono text-emerald-700 mt-1">
               Rp {totalSavings.toLocaleString('id-ID')}
             </p>
           </div>

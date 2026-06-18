@@ -13,6 +13,7 @@ import { generateDocx } from '../services/docxService';
 import { updateBlueprintRealizationStatus } from '../services/dbService';
 import { BudgetEfficiencyAnalyzer } from './BudgetEfficiencyAnalyzer';
 import { TimelineVisualizer } from './TimelineVisualizer';
+import { ChannelAutomationHub } from './ChannelAutomationHub';
 
 interface Props {
   blueprint: Blueprint;
@@ -726,7 +727,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
         </div>
 
         {/* Section Navigation Tabs */}
-        <div className="grid grid-cols-4 md:flex md:items-center gap-1 md:gap-1.5 py-1 border-t border-slate-50 pt-3 mt-1 w-full">
+        <div className="grid grid-cols-4 md:flex md:items-center md:justify-center gap-1 md:gap-1.5 py-1 border-t border-slate-50 pt-3 mt-1 w-full">
           {[
             { id: 'meta', label: 'Meta', icon: FileText },
             { id: 'operational', label: 'Operasional', icon: Settings2 },
@@ -736,7 +737,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
             <React.Fragment key={item.id}>
               <button
                 onClick={() => setActiveTab(item.id as any)}
-                className={`flex flex-col md:flex-row items-center justify-center text-center md:text-left gap-1 md:gap-1.5 px-1 md:px-4 py-2 md:py-2 rounded-xl text-[8px] xs:text-[9px] md:text-[11px] font-bold transition-all uppercase tracking-normal xs:tracking-wider md:tracking-widest whitespace-normal md:whitespace-nowrap ${
+                className={`flex flex-col md:flex-row items-center justify-center text-center gap-1 md:gap-1.5 px-1 md:px-4 py-2 md:py-2 rounded-xl text-[8px] xs:text-[9px] md:text-[11px] font-bold transition-all uppercase tracking-normal xs:tracking-wider md:tracking-widest whitespace-normal md:whitespace-nowrap ${
                   activeTab === item.id 
                     ? 'bg-teal-600 text-white shadow-md shadow-teal-100 md:scale-105' 
                     : 'text-slate-500 hover:text-teal-600 hover:bg-teal-50/50'
@@ -1060,6 +1061,114 @@ Dihasilkan secara otomatis oleh CommunityOS.
                 </div>
               </div>
 
+              {/* Card Ringkasan Wellbeing Score */}
+              <div className="bg-white p-4 sm:p-6 md:p-10 rounded-2xl sm:rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 blur-[80px] -mr-32 -mt-32 pointer-events-none" />
+                
+                <div className="flex flex-col lg:flex-row items-center lg:items-center justify-between gap-6 md:gap-10 relative z-10">
+                  
+                  {/* Left Column: Title & Analysis Text */}
+                  <div className="flex-1 space-y-4 text-center lg:text-left">
+                    <div className="flex flex-col lg:flex-row items-center gap-2 lg:gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 border border-teal-100">
+                        <ShieldCheck className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm md:text-base font-bold font-display text-slate-800 leading-tight">Ringkasan Kesehatan Tim (Wellbeing Score)</h3>
+                        <p className="text-[9px] font-black text-teal-600 uppercase tracking-widest mt-0.5">Prediksi Tingkat Kelelahan Relawan & Solusi Berkelanjutan</p>
+                      </div>
+                    </div>
+
+                    <p className="text-slate-600 text-xs md:text-sm leading-relaxed max-w-xl">
+                      {blueprint.wellbeing_guard.fatigue_analysis || blueprint.wellbeing_guard.burnout_analysis || "Analisis kelelahan dan kenyamanan kerja relawan lapangan berdasarkan porsi istirahat, intensitas rundown, dan dukungan gotong royong."}
+                    </p>
+
+                    {/* Fast action mitigation items */}
+                    {blueprint.wellbeing_guard.action_items && blueprint.wellbeing_guard.action_items.length > 0 && (
+                      <div className="pt-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Rekomendasi Utama Mitigasi Burnout:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-medium text-slate-700">
+                          {blueprint.wellbeing_guard.action_items.slice(0, 2).map((item, index) => (
+                            <div key={index} className="flex items-start gap-2 bg-slate-50 border border-slate-100/80 p-2.5 rounded-xl text-left">
+                              <span className="text-teal-500 mt-0.5 shrink-0">✨</span>
+                              <span className="leading-tight text-slate-600 font-semibold">{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Score visual ring and risk classification */}
+                  <div className="w-full lg:w-auto shrink-0 flex flex-col sm:flex-row items-center gap-6 p-5 sm:p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                    
+                    {/* Visual Progress Ring */}
+                    <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0 flex items-center justify-center">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                        {/* Background Track */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          className="stroke-slate-200"
+                          strokeWidth="8"
+                          fill="transparent"
+                        />
+                        {/* Progress ring with corresponding burnout/wellbeing status color */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          className={`${
+                            blueprint.wellbeing_guard.risk_level === 'Red' ? 'stroke-rose-500' :
+                            blueprint.wellbeing_guard.risk_level === 'Amber' || blueprint.wellbeing_guard.risk_level === 'Yellow' ? 'stroke-amber-500' :
+                            'stroke-teal-500'
+                          }`}
+                          strokeWidth="8"
+                          fill="transparent"
+                          strokeDasharray={251.2}
+                          strokeDashoffset={251.2 - (251.2 * (100 - (blueprint.event_meta.burnout_risk || 30))) / 100}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      {/* Inner text */}
+                      <div className="absolute text-center">
+                        <span className="text-2xl sm:text-3xl font-black font-display text-slate-800 tracking-tight">
+                          {100 - (blueprint.event_meta.burnout_risk || 30)}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 block -mt-1 leading-none">/ 100</span>
+                      </div>
+                    </div>
+
+                    {/* Right text labels */}
+                    <div className="text-center sm:text-left space-y-2">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Status Kesejahteraan</p>
+                        <p className={`text-base font-extrabold mt-1 uppercase tracking-tight flex items-center justify-center sm:justify-start gap-1 `}>
+                          <span>
+                            {blueprint.wellbeing_guard.risk_level === 'Red' ? '🔴 Risiko Tinggi' :
+                             blueprint.wellbeing_guard.risk_level === 'Amber' || blueprint.wellbeing_guard.risk_level === 'Yellow' ? '🟡 Siaga Lelah' :
+                             '🟢 Berkelanjutan'}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="h-px bg-slate-200" />
+
+                      <p className="text-[10px] text-slate-500 leading-tight font-medium max-w-[160px]">
+                        {blueprint.wellbeing_guard.risk_level === 'Red' 
+                          ? 'Gawat! Jadwal padat tanpa istirahat memadai. Tim sangat rentan burnout.' 
+                          : blueprint.wellbeing_guard.risk_level === 'Amber' || blueprint.wellbeing_guard.risk_level === 'Yellow'
+                          ? 'Perlu waspada. Pastikan waktu istirahat & asupan makan terpenuhi.'
+                          : 'Rundown sangat seimbang. Semangat relawan akan terjaga prima.'}
+                      </p>
+                    </div>
+
+                  </div>
+
+                </div>
+              </div>
+
               {/* Strategy Card - Full Display */}
               <div 
                 className="bg-slate-900 p-4 sm:p-6 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden border border-white/5 group"
@@ -1220,6 +1329,9 @@ Dihasilkan secara otomatis oleh CommunityOS.
 
               {/* Budget Efficiency & Cost Estimation Analysis */}
               <BudgetEfficiencyAnalyzer blueprint={blueprint} />
+
+              {/* Channel Automation & Coordinated Synchronizer */}
+              <ChannelAutomationHub blueprint={blueprint} />
 
               {/* Rundown & Wellbeing Insight Integration */}
               <section className="space-y-8">

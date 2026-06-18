@@ -17,6 +17,7 @@ interface Props {
 
 export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLoggedIn, userEmail, onLoginRequest }) => {
   const [mode, setMode] = React.useState<'quick' | 'strategic'>('quick');
+  const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saving' | 'saved'>('idle');
   const [mentorSuggestion, setMentorSuggestion] = React.useState<{
     recommended: 'quick' | 'strategic';
     reason: string;
@@ -216,7 +217,33 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
       if (savedDraft) {
         try {
           const parsed = JSON.parse(savedDraft);
-          setFormValues(prev => ({ ...prev, ...parsed }));
+          if (parsed.name || parsed.organization || parsed.goal) {
+            setFormValues(prev => ({ ...prev, ...parsed }));
+            toast.success("📝 Draf kegiatan pulih otomatis!", {
+              description: "Kami telah memuat kembali ketikan terakhir Anda.",
+              action: {
+                label: "Mulai Baru",
+                onClick: () => {
+                  setFormValues({
+                    name: '',
+                    organization: '',
+                    location: '',
+                    participants: '',
+                    staff: '',
+                    budget: '',
+                    type: '',
+                    goal: '',
+                    spirit: 'idea',
+                    previous_context: '',
+                  });
+                  localStorage.removeItem('communityos_draft_form');
+                  setSaveStatus('idle');
+                  toast.info("Draf dibersihkan. Memulai rujukan baru.");
+                }
+              },
+              duration: 5000,
+            });
+          }
         } catch (e) {
           console.error("Gagal memuat draf otomatis:", e);
         }
@@ -224,11 +251,27 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
     }
   }, [prefill]);
 
-  // Save current form values to localStorage as user types
+  // Save current form values to localStorage as user types with debounce & indicator
   React.useEffect(() => {
-    if (!loading && (formValues.name || formValues.organization || formValues.goal)) {
-      localStorage.setItem('communityos_draft_form', JSON.stringify(formValues));
+    if (loading) return;
+
+    const hasContent = !!(formValues.name || formValues.organization || formValues.goal || formValues.location || formValues.type);
+    if (!hasContent) {
+      setSaveStatus('idle');
+      return;
     }
+
+    setSaveStatus('saving');
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('communityos_draft_form', JSON.stringify(formValues));
+        setSaveStatus('saved');
+      } catch (err) {
+        console.error("Gagal menyimpan draf otomatis:", err);
+      }
+    }, 700);
+
+    return () => clearTimeout(timer);
   }, [formValues, loading]);
 
   React.useEffect(() => {
@@ -311,10 +354,18 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
           <h2 className="text-lg md:text-2xl font-display font-black text-slate-800 mb-1">Rancang Kegiatan</h2>
           <p className="text-[10px] md:text-sm text-slate-500 italic">"Lengkapi detail untuk blueprint yang personal."</p>
         </div>
-        {(formValues.name || formValues.organization || formValues.goal) && (
-          <div className="self-start sm:self-center bg-teal-50 text-teal-700 border border-teal-100 rounded-full px-3 py-1.5 text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 animate-pulse shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-            Auto-Save Aktif ⚡
+        {saveStatus !== 'idle' && (
+          <div className={`self-start sm:self-center rounded-full px-3 py-1.5 text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 shadow-sm border transition-all duration-350 ${
+            saveStatus === 'saving' 
+              ? 'bg-amber-50 text-amber-700 border-amber-100 animate-pulse'
+              : 'bg-teal-50 text-teal-700 border-teal-100'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full transition-all duration-350 ${
+              saveStatus === 'saving' ? 'bg-amber-500 animate-ping' : 'bg-teal-500'
+            }`} />
+            <span>
+              {saveStatus === 'saving' ? 'Menyimpan draf... ⏳' : 'Draf tersimpan otomatis ⚡'}
+            </span>
           </div>
         )}
       </div>

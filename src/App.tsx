@@ -10,7 +10,7 @@ import { DonationModal } from './components/DonationModal';
 import { CreatorProfile } from './components/CreatorProfile';
 import { generateBlueprint, validateInputWithAI, refineBlueprint } from './services/geminiService';
 import { saveBlueprintToHistory, HistoryItem, clearHistory as clearLocalHistory, clearSessionCache } from './services/storageService';
-import { saveBlueprintToCloud, getBlueprintFromCloud, updateBlueprintInCloud, getAppSetting, updateBlueprintRealizationStatus } from './services/dbService';
+import { saveBlueprintToCloud, getBlueprintFromCloud, updateBlueprintInCloud, getAppSetting, updateBlueprintRealizationStatus, restoreLocalFromIndexedDB } from './services/dbService';
 import { auth, loginWithGoogle, logout, onAuthStateChanged, User } from './services/firebase';
 import { Blueprint, EventData } from './types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -72,7 +72,16 @@ export default function App() {
       return false;
     };
 
-    checkGuestSession();
+    const runInit = async () => {
+      try {
+        await restoreLocalFromIndexedDB();
+      } catch (e) {
+        console.error("Gagal memulihkan cadangan dari IndexedDB:", e);
+      }
+      checkGuestSession();
+    };
+
+    runInit();
 
     let unsubscribe = () => {};
     if (auth) {
@@ -513,7 +522,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="max-w-4xl mx-auto content-padding pt-8 md:pt-16 pb-20 md:pb-32">
+      <main className="max-w-4xl mx-auto content-padding pt-safe-area pt-4 md:pt-12 pb-safe-area pb-16 md:pb-24">
         <AnimatePresence mode="wait">
           {loading ? (
             <motion.div

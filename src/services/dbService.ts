@@ -53,7 +53,160 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   app_version: "v1.2.0-Offline"
 };
 
-// --- Local Storage Helpers (Offline-First Engine) ---
+// --- Local Storage & IndexedDB Helpers (Dual-Layer Offline-First Engine) ---
+
+const DB_NAME = 'communityos_gerilya_db';
+const DB_VERSION = 1;
+
+let idbPromise: Promise<IDBDatabase> | null = null;
+
+const initIndexedDB = (): Promise<IDBDatabase> => {
+  if (idbPromise) return idbPromise;
+  idbPromise = new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      reject(new Error("IndexedDB tidak didukung oleh browser Anda."));
+      return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event: any) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('blueprints')) {
+        db.createObjectStore('blueprints', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('comments')) {
+        db.createObjectStore('comments', { keyPath: 'blueprintId' });
+      }
+      if (!db.objectStoreNames.contains('organizations')) {
+        db.createObjectStore('organizations', { keyPath: 'id' });
+      }
+    };
+
+    request.onsuccess = (event: any) => {
+      resolve(event.target.result);
+    };
+
+    request.onerror = (event: any) => {
+      reject(event.target.error);
+    };
+  });
+  return idbPromise;
+};
+
+export const saveToIndexedDB = async (
+  storeName: 'blueprints' | 'organizations' | 'comments',
+  data: any
+): Promise<void> => {
+  try {
+    const dbInstance = await initIndexedDB();
+    return new Promise<void>((resolve, reject) => {
+      const transaction = dbInstance.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.put(data);
+      request.onsuccess = () => resolve();
+      request.onerror = (e) => reject(request.error || e);
+    });
+  } catch (err) {
+    console.warn(`[IndexedDB Backup Error] Gagal menulis ke ${storeName}:`, err);
+  }
+};
+
+export const getAllFromIndexedDB = async (
+  storeName: 'blueprints' | 'organizations' | 'comments'
+): Promise<any[]> => {
+  try {
+    const dbInstance = await initIndexedDB();
+    return new Promise<any[]>((resolve, reject) => {
+      const transaction = dbInstance.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = (e) => reject(request.error || e);
+    });
+  } catch (err) {
+    console.warn(`[IndexedDB Load Error] Gagal membaca dari ${storeName}:`, err);
+    return [];
+  }
+};
+
+export const restoreLocalFromIndexedDB = async (): Promise<void> => {
+  try {
+    console.log("🎒 CommunityOS: Menjalankan pemulihan data dari cadangan IndexedDB (Gerilya Recovery)...");
+
+    // 1. Pulihkan Blueprints
+    const idbBlueprints = await getAllFromIndexedDB('blueprints');
+    if (idbBlueprints && idbBlueprints.length > 0) {
+      const localBlueprints = getLocalBlueprints();
+      const mergedMap = new Map<string, BlueprintDocument>();
+      localBlueprints.forEach(bp => mergedMap.set(bp.id, bp));
+
+      idbBlueprints.forEach((bp: BlueprintDocument) => {
+        const existing = mergedMap.get(bp.id);
+        if (!existing) {
+          mergedMap.set(bp.id, bp);
+        } else {
+          const localTime = existing.updatedAt?.seconds || 0;
+          const idbTime = bp.updatedAt?.seconds || 0;
+          if (idbTime > localTime) {
+            mergedMap.set(bp.id, bp);
+          }
+        }
+      });
+
+      const newList = Array.from(mergedMap.values());
+      localStorage.setItem('communityos_local_blueprints', JSON.stringify(newList));
+    }
+
+    // 2. Pulihkan Komentar
+    const idbCommentsRecords = await getAllFromIndexedDB('comments');
+    if (idbCommentsRecords && idbCommentsRecords.length > 0) {
+      const localComments = getLocalComments();
+      idbCommentsRecords.forEach((item: { blueprintId: string; list: BlueprintComment[] }) => {
+        const localList = localComments[item.blueprintId] || [];
+        const mergedCommentsMap = new Map<string, BlueprintComment>();
+        localList.forEach(c => mergedCommentsMap.set(c.id, c));
+
+        item.list.forEach((c: BlueprintComment) => {
+          const existing = mergedCommentsMap.get(c.id);
+          if (!existing) {
+            mergedCommentsMap.set(c.id, c);
+          } else {
+            const localTime = (existing.createdAt?.seconds || 0);
+            const idbTime = (c.createdAt?.seconds || 0);
+            if (idbTime > localTime) {
+              mergedCommentsMap.set(c.id, c);
+            }
+          }
+        });
+        localComments[item.blueprintId] = Array.from(mergedCommentsMap.values());
+      });
+      localStorage.setItem('communityos_local_comments', JSON.stringify(localComments));
+    }
+
+    // 3. Pulihkan Profil Organisasi
+    const idbOrgs = await getAllFromIndexedDB('organizations');
+    if (idbOrgs && idbOrgs.length > 0) {
+      const localOrgsJson = localStorage.getItem('communityos_local_organizations');
+      const localOrgs: OrganizationProfile[] = localOrgsJson ? JSON.parse(localOrgsJson) : [];
+      const orgsMap = new Map<string, OrganizationProfile>();
+      localOrgs.forEach(o => orgsMap.set(o.id, o));
+
+      idbOrgs.forEach((org: OrganizationProfile) => {
+        const existing = orgsMap.get(org.id);
+        if (!existing || (org.lastActive?.seconds || 0) > (existing.lastActive?.seconds || 0)) {
+          orgsMap.set(org.id, org);
+        }
+      });
+      localStorage.setItem('communityos_local_organizations', JSON.stringify(Array.from(orgsMap.values())));
+    }
+
+    // Jalankan kalkulasi internal agar visual dashboard selaras
+    recalculateLocalOrgStats();
+    console.log("🎯 CommunityOS: Sinkronisasi pemulihan dari IndexedDB berhasil direkonsiliasi.");
+  } catch (err) {
+    console.error("Gagal melakukan pencadangan otomatis lewat IndexedDB:", err);
+  }
+};
 
 const getLocalBlueprints = (): BlueprintDocument[] => {
   try {
@@ -68,6 +221,10 @@ const getLocalBlueprints = (): BlueprintDocument[] => {
 const saveLocalBlueprints = (blueprints: BlueprintDocument[]) => {
   try {
     localStorage.setItem('communityos_local_blueprints', JSON.stringify(blueprints));
+    // Mirror ke IndexedDB untuk redundansi aman saat browser crashed atau closed mendadak
+    blueprints.forEach(bp => {
+      saveToIndexedDB('blueprints', bp);
+    });
   } catch (e) {
     console.error("Gagal menyimpan local blueprints:", e);
   }
@@ -86,6 +243,10 @@ const getLocalComments = (): Record<string, BlueprintComment[]> => {
 const saveLocalComments = (comments: Record<string, BlueprintComment[]>) => {
   try {
     localStorage.setItem('communityos_local_comments', JSON.stringify(comments));
+    // Mirror semua list komentar ke IndexedDB
+    Object.entries(comments).forEach(([blueprintId, list]) => {
+      saveToIndexedDB('comments', { blueprintId, list });
+    });
   } catch (e) {
     console.error("Gagal menyimpan komentar lokal:", e);
   }
@@ -159,6 +320,11 @@ export const recalculateLocalOrgStats = () => {
     }));
 
     localStorage.setItem('communityos_local_organizations', JSON.stringify(localOrgs));
+    
+    // Mirror ke IndexedDB
+    localOrgs.forEach(org => {
+      saveToIndexedDB('organizations', org);
+    });
   } catch (e) {
     console.error("Gagal melakukan kalkulasi stats lokal:", e);
   }

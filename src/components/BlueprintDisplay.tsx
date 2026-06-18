@@ -11,6 +11,8 @@ import { HelpTooltip } from './HelpTooltip';
 import { GUIDANCE_DATA } from '../constants/guidance';
 import { generateDocx } from '../services/docxService';
 import { updateBlueprintRealizationStatus } from '../services/dbService';
+import { BudgetEfficiencyAnalyzer } from './BudgetEfficiencyAnalyzer';
+import { TimelineVisualizer } from './TimelineVisualizer';
 
 interface Props {
   blueprint: Blueprint;
@@ -763,7 +765,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
               <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-slate-900 via-slate-950 to-teal-950 text-white p-6 md:p-10 rounded-[2.5rem] shadow-xl shadow-teal-900/10 border border-teal-500/20 relative overflow-hidden"
+                className="bg-gradient-to-br from-slate-900 via-slate-950 to-teal-950 text-white p-4 sm:p-6 md:p-10 rounded-2xl sm:rounded-[2.5rem] shadow-xl shadow-teal-900/10 border border-teal-500/20 relative overflow-hidden"
               >
                 {/* Background ambient glowing light */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 blur-[80px] -mr-32 -mt-32" />
@@ -971,7 +973,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
 
               {/* Event Meta Header - Refined for clarity and "adem" look */}
               <div
-                className="bg-white p-7 md:p-16 rounded-[2.5rem] md:rounded-[4rem] text-slate-900 shadow-xl shadow-teal-900/5 border border-teal-50 relative overflow-hidden"
+                className="bg-white p-4 sm:p-6 md:p-16 rounded-2xl sm:rounded-[2.5rem] md:rounded-[4rem] text-slate-900 shadow-xl shadow-teal-900/5 border border-teal-50 relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-teal-50/50 via-white to-emerald-50/50" />
                 <div className="absolute top-0 right-0 w-96 h-96 bg-teal-200/20 blur-[100px] -mr-48 -mt-48" />
@@ -1060,7 +1062,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
 
               {/* Strategy Card - Full Display */}
               <div 
-                className="bg-slate-900 p-8 md:p-14 rounded-[2.5rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden border border-white/5 group"
+                className="bg-slate-900 p-4 sm:p-6 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[4rem] text-white shadow-2xl relative overflow-hidden border border-white/5 group"
               >
                 <div className="absolute top-0 right-0 w-96 h-96 bg-teal-500/20 blur-[100px] -mr-48 -mt-48 transition-all group-hover:bg-teal-500/30" />
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/10 blur-[100px] -ml-32 -mb-32" />
@@ -1096,7 +1098,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
               className="space-y-8 md:space-y-12"
             >
               {/* Operational Metadata */}
-              <section className="bg-white p-7 md:p-14 rounded-[2.5rem] md:rounded-[4rem] shadow-sm border border-slate-100 space-y-10 md:space-y-14">
+              <section className="bg-white p-4 sm:p-6 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[4rem] shadow-sm border border-slate-100 space-y-10 md:space-y-14">
                 <div className="flex items-center gap-3">
                   <Settings2 className="w-4 h-4 text-slate-300" />
                   <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Analisis Operasional</h3>
@@ -1216,6 +1218,9 @@ Dihasilkan secara otomatis oleh CommunityOS.
                 </div>
               </section>
 
+              {/* Budget Efficiency & Cost Estimation Analysis */}
+              <BudgetEfficiencyAnalyzer blueprint={blueprint} />
+
               {/* Rundown & Wellbeing Insight Integration */}
               <section className="space-y-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
@@ -1334,9 +1339,12 @@ Dihasilkan secara otomatis oleh CommunityOS.
                   </div>
                 )}
 
+                {/* Timeline Visualization of Blueprint Tasks */}
+                <TimelineVisualizer blueprint={blueprint} />
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Rundown List */}
-                  <div className="lg:col-span-2 bg-white p-7 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl shadow-slate-200/40 border border-slate-100 space-y-10 md:space-y-12 relative overflow-hidden">
+                  <div className="lg:col-span-2 bg-white p-4 sm:p-6 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl shadow-slate-200/40 border border-slate-100 space-y-10 md:space-y-12 relative overflow-hidden">
                     <div className="absolute left-7 md:left-14 top-14 md:top-14 bottom-14 md:bottom-14 w-1 bg-slate-50 rounded-full" />
                     
                     {blueprint.operational.rundown.map((item, index) => {
@@ -1535,7 +1543,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
               </div>
 
               {/* Fatigue Analysis Hero */}
-              <div className={`p-8 md:p-14 rounded-[2.5rem] md:rounded-[4rem] border flex flex-col gap-6 md:gap-8 relative overflow-hidden transition-all shadow-xl ${
+              <div className={`p-4 sm:p-8 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[4rem] border flex flex-col gap-6 md:gap-8 relative overflow-hidden transition-all shadow-xl ${
                 blueprint.wellbeing_guard.risk_level === 'Red' ? 'bg-rose-50/30 border-rose-100 shadow-rose-900/5' : 
                 blueprint.wellbeing_guard.risk_level === 'Amber' || blueprint.wellbeing_guard.risk_level === 'Yellow' ? 'bg-amber-50/30 border-amber-100 shadow-amber-900/5' : 
                 'bg-emerald-50/30 border-emerald-100 shadow-emerald-900/5'
@@ -1576,7 +1584,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
               exit={{ opacity: 0, x: -10 }}
               className="space-y-8 md:space-y-12"
             >
-              <section className="bg-white p-7 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm border border-slate-100 space-y-10 md:space-y-14">
+              <section className="bg-white p-4 sm:p-6 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[3.5rem] shadow-sm border border-slate-100 space-y-10 md:space-y-14">
                 <div className="flex items-center gap-4 md:gap-5">
                   <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl md:rounded-[1.5rem] bg-indigo-50 flex items-center justify-center">
                     <Share2 className="w-6 h-6 md:w-7 md:h-7 text-indigo-600" />
@@ -1634,7 +1642,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-7 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl shadow-indigo-900/5 border border-indigo-100/50 space-y-8 md:space-y-10 relative overflow-hidden"
+          className="bg-white p-4 sm:p-6 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl shadow-indigo-900/5 border border-indigo-100/50 space-y-8 md:space-y-10 relative overflow-hidden"
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] -mr-32 -mt-32" />
           
@@ -1775,7 +1783,7 @@ Dihasilkan secara otomatis oleh CommunityOS.
         <motion.section 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-7 md:p-14 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl shadow-teal-900/5 border border-teal-100/50 space-y-8 md:space-y-10 relative overflow-hidden"
+          className="bg-white p-4 sm:p-6 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl shadow-teal-900/5 border border-teal-100/50 space-y-8 md:space-y-10 relative overflow-hidden"
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/5 blur-[100px] -mr-32 -mt-32" />
           

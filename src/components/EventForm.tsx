@@ -304,7 +304,7 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
   return (
     <form 
       onSubmit={handleSubmit} 
-      className="bg-white p-6 md:p-14 rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 space-y-8 md:space-y-12 relative overflow-hidden"
+      className="bg-white p-4 sm:p-6 md:p-14 rounded-2xl sm:rounded-[2.5rem] md:rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 space-y-8 md:space-y-12 relative overflow-hidden"
     >
       <div className="relative border-b border-slate-100 pb-6 md:pb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

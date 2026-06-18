@@ -90,6 +90,13 @@ async function startServer() {
         // Handle specific error strings or status codes
         const status = error.status || error.statusCode || (error.response?.status);
         const errMsg = (error.message || "").toLowerCase();
+        let is503 = status === 503 || errMsg.includes("503") || errMsg.includes("unavailable") || errMsg.includes("high demand") || errMsg.includes("overloaded");
+        if (!is503) {
+          try {
+            const errStr = JSON.stringify(error).toLowerCase();
+            is503 = errStr.includes("503") || errStr.includes("unavailable") || errStr.includes("high demand");
+          } catch (_) {}
+        }
         
         if (status === 429 || errMsg.includes("quota") || errMsg.includes("exhausted") || errMsg.includes("429")) {
           console.error("[AI] Quota exceeded, stopping retries.");
@@ -101,10 +108,18 @@ async function startServer() {
           throw new Error("API_KEY_ISSUE");
         }
 
+        if (is503) {
+          console.warn(`[AI] Detected 503/UNAVAILABLE/High-Demand for model ${modelName}.`);
+          if (modelName === "gemini-3.5-flash") {
+            modelName = "gemini-3.1-flash-lite";
+            console.log(`[AI] Switching fallback model to ${modelName} for subsequent attempts.`);
+          }
+        }
+
         // Wait a bit before retry (exponential backoff)
         if (i < retries) {
           const delay = 1000 * (i + 1);
-          console.log(`[AI] Retrying in ${delay}ms...`);
+          console.log(`[AI] Retrying in ${delay}ms with model: ${modelName}...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }

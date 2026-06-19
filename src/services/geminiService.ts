@@ -1,4 +1,203 @@
 import { Blueprint, EventData } from "../types";
+import { toast } from 'sonner';
+
+export function generateLocalBlueprintFallback(data: EventData & { mode?: 'quick' | 'strategic' }): Blueprint {
+  const isStrategic = data.mode === 'strategic';
+  
+  // Decide scale classification
+  let scale_classification: 'Gerilya Scale' | 'Community Scale' | 'Regional Scale' | 'Massive Scale' = 'Community Scale';
+  if (data.budget < 1000000 || data.staff < 8) {
+    scale_classification = 'Gerilya Scale';
+  } else if (data.budget < 15000000 || data.staff < 25) {
+    scale_classification = 'Community Scale';
+  } else if (data.budget < 75000000 || data.staff < 60) {
+    scale_classification = 'Regional Scale';
+  } else {
+    scale_classification = 'Massive Scale';
+  }
+
+  // Calculate scores
+  const rawRatio = data.participants / (data.staff || 1);
+  const burnout_risk = Math.min(95, Math.max(15, Math.ceil(rawRatio * 1.5 + 20)));
+  const budget_pressure = Math.min(95, Math.max(10, Math.ceil(Math.min(100, (data.participants * 20000) / (data.budget || 200000)))));
+  const coordination_intensity = Math.min(95, Math.max(20, Math.ceil(data.staff * 2.5 + (isStrategic ? 15 : 5))));
+  const operational_complexity = Math.min(95, Math.max(15, Math.ceil((burnout_risk + budget_pressure + coordination_intensity) / 3)));
+
+  // Risk level
+  let risk_level: 'Green' | 'Yellow' | 'Amber' | 'Red' = 'Green';
+  if (burnout_risk > 70) {
+    risk_level = 'Red';
+  } else if (burnout_risk > 50) {
+    risk_level = 'Amber';
+  } else if (burnout_risk > 35) {
+    risk_level = 'Yellow';
+  } else {
+    risk_level = 'Green';
+  }
+  
+  if (risk_level === 'Green' && (budget_pressure > 70 || coordination_intensity > 70)) {
+    risk_level = 'Yellow';
+  }
+
+  // Strategy
+  let strategy = "";
+  const spirit = data.spirit || 'idea';
+  if (spirit === 'duplicate') {
+    strategy = `Rencana taktis menggunakan pola kerja lincah dan duplikasi praktik terbaik. Berdasarkan budget Rp ${data.budget.toLocaleString('id-ID')}, kita prioritaskan pembiayaan pada poin esensial seperti fasilitas fisik dan konsumsi, meminimalisir risiko koordinasi berlebih serta menjaga energi ${data.staff} panitia agar tetap optimal sepanjang acara di ${data.location}.`;
+  } else if (spirit === 'growth') {
+    strategy = `Pengembangan jangkauan kegiatan untuk menyasar ${data.participants} orang peserta secara merata. Di ${data.location}, kami menyarankan kolaborasi dengan simpul masyarakat atau komunitas lokal terdekat guna membagi beban operasional serta memastikan ketersediaan sarana pendukung tanpa menguras persediaan dana awal secara besar-besaran.`;
+  } else if (spirit === 'innovation') {
+    strategy = `Pendekatan baru yang inovatif, berfokus ke media digital dan interaksi interaktif tinggi untuk memangkas pengeluaran media cetak fisik. Melalui Gerilya Mode, kepanitaan ${data.staff} relawan diprioritaskan menguasai jalur komunikasi berbasis QR Code dan sosmed, memastikan pemanfaatan dana tetap berpusat pada nilai guna peserta.`;
+  } else {
+    strategy = `Merintis gagasan awal secara swadaya di ${data.location}. Kita berfokus memperkuat kebersamaan, menyentuh kebutuhan mendasar warga, serta membangun reputasi perdana yang berkesan. Seluruh alokasi anggaran Rp ${data.budget.toLocaleString('id-ID')} difokuskan pada pemenuhan kebutuhan primer peserta dan penunjang materi utama.`;
+  }
+
+  // Wellbeing analyses
+  let burnout_analysis = "";
+  let fatigue_analysis = "";
+  let action_items: string[] = [];
+
+  if (risk_level === 'Red' || burnout_risk >= 60) {
+    burnout_analysis = `Mengingat tim hanya berkekuatan ${data.staff} relawan untuk mengawal ${data.participants} orang, beban perorangan tergolong tinggi. Waspadai burnout tingkat tinggi jika tidak ada pembagian shift yang tegas.`;
+    fatigue_analysis = `Titik jenuh diprediksi melanda panitia pada sesi siang hari setelah ISHOMA akibat kelelahan fisik, penataaan katering, atau kurangnya cairan tubuh panitia di ${data.location}.`;
+    action_items = [
+      "Wajibkan istirahat bergilir setiap 30-45 menit bagi tim logistik & registrasi.",
+      "Tunjuk 1 orang kru khusus sebagai 'Penyelamat Energi' yang bertugas mendistribusikan air minum dan makanan kecil kepada relawan aktif.",
+      "Terapkan asupan makan besar utama tepat waktu (maksimal pukul 12:00) agar stamina pulih sebelum sesi siang dimulai."
+    ];
+  } else if (risk_level === 'Amber' || burnout_risk >= 35) {
+    burnout_analysis = `Beban kerja tim sedang, namun porsi koordinasi fisik di ${data.location} bisa memicu kelelahan akumulatif bagi beberapa divisi jika porsi kerja bertumpuk secara tidak seimbang.`;
+    fatigue_analysis = `Energi relawan diperkirakan menurun menjelang penutupan acara akibat kelelahan pasca-acara dan pembongkaran peralatan berat.`;
+    action_items = [
+      "Bagikan tanggung jawab bongkar pasang panggung/ruangan ke seluruh panitia tanpa terkecuali (gotong royong total).",
+      "Sediakan minuman hangat manis (kopi/teh) dan makanan ringan di ruang panitia sejak pagi.",
+      "Lakukan briefing apresiatif singkat 10 menit sebelum acara sebagai sarana pemikat semangat kru."
+    ];
+  } else {
+    burnout_analysis = `Rasio kepanitiaan sangat mumpuni (${data.staff} panitia untuk ${data.participants} peserta). Suasana kerja diperkirakan berjalan santai, gembira, dan penuh kehangatan khas komunitas berkelanjutan.`;
+    fatigue_analysis = `Kelelahan ringan yang normal terjadi hanya pada fase persiapan akhir malam hari sebelum pelaksanaan (H-1).`;
+    action_items = [
+      "Pastikan panitia tidur minimal 6 jam pada H-1 pelaksanaan.",
+      "Pertahankan iklim guyub, putar musik santai di sela-sela waktu istirahat.",
+      "Adakan apresiasi kilat berbentuk ucapan terima kasih kepada setiap relawan setelah acara selesai."
+    ];
+  }
+
+  // Budget allocations
+  const budget_allocation: { item: string; amount: number; label: string }[] = [];
+  if (data.budget > 0) {
+    const amt1 = Math.floor(data.budget * 0.45);
+    const amt2 = Math.floor(data.budget * 0.25);
+    const amt3 = Math.floor(data.budget * 0.15);
+    const amt4 = data.budget - (amt1 + amt2 + amt3);
+
+    budget_allocation.push({ item: `Konsumsi Lapangan (Peserta & ${data.staff} Relawan)`, amount: amt1, label: "Esensial" });
+    budget_allocation.push({ item: `Logistik Tempat & Peralatan Teknis Utama`, amount: amt2, label: "Esensial" });
+    budget_allocation.push({ item: `Publikasi Kreatif, Brosur QR & Bingkisan Kecil`, amount: amt3, label: "Opsional" });
+    budget_allocation.push({ item: `Dana Darurat & Stok Kebersihan/Obat Terpadu`, amount: amt4, label: "Esensial" });
+  } else {
+    budget_allocation.push({ item: "Konsumsi Swadaya (Simbah & warga membawa bekal potluck)", amount: 0, label: "Esensial" });
+    budget_allocation.push({ item: "Fasilitas Balai Warga / Pekarangan Kosong RT/RW", amount: 0, label: "Esensial" });
+    budget_allocation.push({ item: "Sewa Sound System & Kabel Tambahan (Pinjam Masjid/Gedung RT)", amount: 0, label: "Esensial" });
+    budget_allocation.push({ item: "Publikasi Via Broadcast WhatsApp & Banner Banner Spolier Mandiri", amount: 0, label: "Opsional" });
+  }
+
+  // Rundown slots
+  const rundown = [
+    { time: "08:00 - 08:30", task: "Kehadiran Seluruh Relawan, Set-up & Briefing Motivasi Pagi" },
+    { time: "08:30 - 09:00", task: `Registrasi Peserta, Distribusi Identitas & Kopi/Teh hangat di ${data.location}` },
+    { time: "09:00 - 10:30", task: `Sesi Utama Bagian I: Pembukaan & Pembahasan Inti "${data.name}"` },
+    { time: "10:30 - 12:00", task: "Sesi Interaktif Kelompok Kecil / Diskusi Kolaboratif & Solusi Bersama" },
+    { time: "12:00 - 13:00", task: "ISHOMA (Istirahat Shalat Makan) - Seluruh Aktivitas Wajib Dihentikan demi Kesejahteraan Tim!" },
+    { time: "13:00 - 14:15", task: `Sesi Utama Bagian II: Praktek/Aksi Nyata Lapangan Komunitas` },
+    { time: "14:15 - 14:45", task: `Evaluasi Singkat (Refleksi Bersama) & Pengisian Kuisioner Feedback` },
+    { time: "14:45 - 15:00", task: "Operasi Semut (Bergotong royong merapikan dan membersihkan lokasi)" },
+    { time: "15:00 - Selesai", task: "Sesi Foto Bersama & Penutupan Hangat Berkelanjutan" }
+  ];
+
+  // Local Partners
+  const local_partners = [
+    `Pengurus RT/RW & Tokoh Masyarakat ${data.location}`,
+    `Karang Taruna atau Organisasi Pemuda Setempat`,
+    `Komunitas Penggerak Sosial & Lingkungan Terdekat`,
+    `UMKM & Pengusaha Warung Makanan Lokal (Penyedia Konsumsi)`
+  ];
+
+  // IG Caption
+  const ig_caption = `Mari bersama bergerak menciptakan dampak nyata! 💫\n\nMelalui "${data.name}", kami dari "${data.organization}" mengundang seluruh teman-teman, pemuda, dan pegiat sosial di sekitar ${data.location} untuk bergabung, belajar, dan berkolaborasi merumuskan langkah taktis demi mencapai target kita: ${data.goal}.\n\nKami percaya, gagasan terbaik tidak berjalan sendiri. Ia tumbuh dari sapaan hangat, gotong royong tanpa batas, serta kepedulian yang tulus bagi kesejahteraan bersama. ❤️\n\n📌 Catat informasinya:\n📍 Lokasi: ${data.location}\n🤝 Terbuka untuk umum & relawan!\n\nMari saling merangkul dan bertumbuh demi kemajuan komunitas kita! Sampai jumpa di lokasi!\n\n#CommunityOS #${data.organization.replace(/\s+/g, '')} #${data.name.replace(/\s+/g, '')} #GotongRoyong #AktivisLokal #IndonesianCommunities #GerilyaScale`;
+
+  return {
+    event_meta: {
+      title: data.name,
+      location: data.location,
+      budget: data.budget,
+      strategy,
+      scale_classification,
+      operational_complexity,
+      burnout_risk,
+      budget_pressure,
+      coordination_intensity
+    },
+    wellbeing_guard: {
+      risk_level,
+      burnout_analysis,
+      fatigue_analysis,
+      action_items
+    },
+    operational: {
+      budget_allocation,
+      rundown
+    },
+    outreach: {
+      local_partners,
+      ig_caption
+    }
+  };
+}
+
+export function refineLocalBlueprintFallback(currentBlueprint: Blueprint, instructions: string, originalData: EventData): Blueprint {
+  const refined = JSON.parse(JSON.stringify(currentBlueprint)) as Blueprint;
+  const text = instructions.toLowerCase();
+  
+  let newBudget = refined.event_meta.budget;
+  const rpMatch = text.match(/(?:rp\.?|rupiah|budget|anggaran)\s*([\d\.]+)/i);
+  if (rpMatch) {
+    const rawNum = rpMatch[1].replace(/\./g, '');
+    const num = parseInt(rawNum, 10);
+    if (!isNaN(num) && num > 0) {
+      newBudget = num;
+    }
+  }
+
+  refined.event_meta.budget = newBudget;
+
+  if (newBudget !== currentBlueprint.event_meta.budget && newBudget > 0) {
+    const amt1 = Math.floor(newBudget * 0.45);
+    const amt2 = Math.floor(newBudget * 0.25);
+    const amt3 = Math.floor(newBudget * 0.15);
+    const amt4 = newBudget - (amt1 + amt2 + amt3);
+
+    refined.operational.budget_allocation = [
+      { item: `Konsumsi Lapangan`, amount: amt1, label: "Esensial" },
+      { item: `Logistik Tempat & Peralatan Teknis Utama`, amount: amt2, label: "Esensial" },
+      { item: `Publikasi Kreatif & Media Konten`, amount: amt3, label: "Opsional" },
+      { item: `Dana Darurat & Stok Kebersihan/Obat Terpadu`, amount: amt4, label: "Esensial" }
+    ];
+  }
+
+  refined.event_meta.strategy = `[Evolusi Offline] ${instructions.substring(0, 100)}${instructions.length > 100 ? '...' : ''}. Kami telah menyesuaikan aspek-aspek taktis operasional dan menyisipkan rekomendasi tindakan baru sesuai arahan Anda agar koordinasi tetap terjaga mulus.`;
+
+  if (!refined.wellbeing_guard.action_items) {
+    refined.wellbeing_guard.action_items = [];
+  }
+  
+  refined.wellbeing_guard.action_items.unshift(
+    `💡 Penyesuaian: ${instructions.charAt(0).toUpperCase() + instructions.slice(1)}`
+  );
+
+  return refined;
+}
+
 
 // Model options based on CommunityOS Operational Logic
 export const MODELS = {
@@ -255,8 +454,17 @@ export async function generateBlueprint(data: EventData & { mode?: 'quick' | 'st
     const blueprint = JSON.parse(rawText) as Blueprint;
     return blueprint;
   } catch (error: any) {
-    console.error("Blueprint generation failed:", error);
-    throw error;
+    console.warn("Blueprint generation AI call failed, activating smart local offline generator:", error);
+    
+    // Toast the user about the offline backup system activation
+    if (typeof window !== "undefined" && toast) {
+      toast.warning("Cadangan Offline Diaktifkan", {
+        description: "Sinyal AI utama sedang sibuk atau kuota terbatas. CommunityOS mengaktifkan Cadangan Mentor Lapangan (Offline Generator) agar usulan lusa Anda siap seketika!",
+        duration: 9000,
+      });
+    }
+
+    return generateLocalBlueprintFallback(data);
   }
 }
 
@@ -305,8 +513,16 @@ export async function refineBlueprint(currentBlueprint: Blueprint, instructions:
     const refined = JSON.parse(rawText) as Blueprint;
     return refined;
   } catch (error: any) {
-    console.error("Blueprint refinement failed:", error);
-    throw error;
+    console.warn("Blueprint refinement AI call failed, activating smart local offline refiner:", error);
+    
+    if (typeof window !== "undefined" && toast) {
+      toast.warning("Evolusi Offline Diaktifkan", {
+        description: "Koneksi AI sedang padat. Kami telah menerapkan usulan penyesuaian Anda menggunakan Modul Optimasi Lapangan mandiri.",
+        duration: 6000,
+      });
+    }
+
+    return refineLocalBlueprintFallback(currentBlueprint, instructions, originalData);
   }
 }
 

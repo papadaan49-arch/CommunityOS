@@ -18,6 +18,8 @@ interface Props {
 export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLoggedIn, userEmail, onLoginRequest }) => {
   const [mode, setMode] = React.useState<'quick' | 'strategic'>('quick');
   const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saving' | 'saved'>('idle');
+  const [draftData, setDraftData] = React.useState<any | null>(null);
+  const [showDraftBanner, setShowDraftBanner] = React.useState(false);
   const [mentorSuggestion, setMentorSuggestion] = React.useState<{
     recommended: 'quick' | 'strategic';
     reason: string;
@@ -210,42 +212,34 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
     if (mentorSuggestion) setMentorSuggestion(null);
   }, [formValues.goal, formValues.participants, formValues.location]);
 
-  // Load draft from localStorage on mount if there's no prefill
+  // Load draft check on mount if there's no prefill
   React.useEffect(() => {
     if (!prefill) {
       const savedDraft = localStorage.getItem('communityos_draft_form');
       if (savedDraft) {
         try {
           const parsed = JSON.parse(savedDraft);
-          if (parsed.name || parsed.organization || parsed.goal) {
-            setFormValues(prev => ({ ...prev, ...parsed }));
-            toast.success("📝 Draf kegiatan pulih otomatis!", {
-              description: "Kami telah memuat kembali ketikan terakhir Anda.",
+          const hasContent = !!(parsed.name || parsed.organization || parsed.goal || parsed.location || parsed.type);
+          if (hasContent) {
+            setDraftData(parsed);
+            setShowDraftBanner(true);
+            
+            // Show proactive toast status offering to restore
+            toast.info("📝 Draf sesi sebelumnya terdeteksi", {
+              description: `Aktivitas "${parsed.name || 'Tanpa Nama'}" terdeteksi belum tersimpan.`,
               action: {
-                label: "Mulai Baru",
+                label: "Pulihkan",
                 onClick: () => {
-                  setFormValues({
-                    name: '',
-                    organization: '',
-                    location: '',
-                    participants: '',
-                    staff: '',
-                    budget: '',
-                    type: '',
-                    goal: '',
-                    spirit: 'idea',
-                    previous_context: '',
-                  });
-                  localStorage.removeItem('communityos_draft_form');
-                  setSaveStatus('idle');
-                  toast.info("Draf dibersihkan. Memulai rujukan baru.");
+                  setFormValues(prev => ({ ...prev, ...parsed }));
+                  setShowDraftBanner(false);
+                  toast.success("✅ Berhasil memuat draf terakhir Anda!");
                 }
               },
-              duration: 5000,
+              duration: 12000,
             });
           }
         } catch (e) {
-          console.error("Gagal memuat draf otomatis:", e);
+          console.error("Gagal memeriksa draf otomatis:", e);
         }
       }
     }
@@ -313,8 +307,8 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
     e.preventDefault();
     if (loading || cooldown > 0 || !isValid) return;
 
-    // Clear autosave cache upon successful submission
-    localStorage.removeItem('communityos_draft_form');
+    // Draft is kept in localStorage until the app successfully generates the blueprint (processed in App.tsx)
+    // This serves as an offline resilience mechanism so users never lose their hard work if an API error occurs.
 
     onSubmit({
       name: formValues.name,
@@ -371,6 +365,49 @@ export const EventForm: React.FC<Props> = ({ onSubmit, loading, prefill, isLogge
       </div>
 
       <div className="space-y-6 md:space-y-10 relative">
+        {showDraftBanner && draftData && (
+          <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-100/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-300 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 blur-2xl pointer-events-none" />
+            <div className="flex items-start gap-3 relative z-10">
+              <span className="text-xl shrink-0 mt-0.5">📂</span>
+              <div>
+                <h4 className="text-xs font-bold text-teal-850 uppercase tracking-widest flex items-center gap-1.5">
+                  <span>Draf Sesi Sebelumnya Ditemukan</span>
+                  <span className="inline-flex w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                </h4>
+                <p className="text-xs text-slate-650 mt-1 leading-relaxed max-w-xl font-medium">
+                  Kamu memiliki rencana kegiatan yang belum dikirim: <strong className="text-teal-900 font-extrabold">"{draftData.name || 'Tanpa Nama'}"</strong> di kota {draftData.location || "belum diatur"}. Pulihkan sekarang untuk melanjutkan kerja hebatmu!
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0 relative z-10">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('communityos_draft_form');
+                  setDraftData(null);
+                  setShowDraftBanner(false);
+                  toast.info("Draf lama telah diabaikan secara permanen.");
+                }}
+                className="px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-850 transition-colors"
+              >
+                Abaikan
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormValues(prev => ({ ...prev, ...draftData }));
+                  setShowDraftBanner(false);
+                  toast.success("✅ Draf berhasil dipulihkan!");
+                }}
+                className="px-4.5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md shadow-teal-100 transition-all active:scale-95 cursor-pointer font-display"
+              >
+                Pulihkan Draf ⚡
+              </button>
+            </div>
+          </div>
+        )}
+
         <div>
           <label className={labelClass}>Spirit & Fokus Kegiatan</label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

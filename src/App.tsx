@@ -244,6 +244,7 @@ export default function App() {
       setLoadingProgress(100);
       setTimeout(() => {
         setBlueprint(result);
+        localStorage.removeItem('communityos_draft_form'); // Clear form draft only now that blueprint succeeded
         setLoading(false);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 800);
